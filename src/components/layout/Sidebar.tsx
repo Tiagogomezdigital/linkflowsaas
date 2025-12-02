@@ -54,31 +54,17 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Verificar se é admin (apenas admin@linkflow.com ou empresa slug 'admin')
+    // Verificar se é admin através da API /api/auth/me
     const checkAdmin = async () => {
       try {
         const response = await fetch('/api/auth/me')
         if (response.ok) {
           const data = await response.json()
           const email = data.user?.email || ''
-          const companyId = data.user?.company_id || ''
+          const isAdminUser = data.user?.is_admin || false
           
           setUserEmail(email)
-          
-          // Verificar se é admin pelo email ou empresa
-          if (email === 'admin@linkflow.com') {
-            setIsAdmin(true)
-          } else {
-            // Verificar se a empresa é admin pelo slug
-            const companyResponse = await fetch(`/api/admin/companies?id=${companyId}`)
-            if (companyResponse.ok) {
-              const companyData = await companyResponse.json()
-              const company = Array.isArray(companyData) ? companyData[0] : companyData
-              if (company?.slug === 'admin') {
-                setIsAdmin(true)
-              }
-            }
-          }
+          setIsAdmin(isAdminUser)
         }
       } catch (error) {
         console.error('Error checking admin status:', error)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -15,6 +16,20 @@ export async function GET() {
       )
     }
 
+    // Verificar se é admin
+    let isAdmin = false
+    try {
+      const supabase = createServiceRoleClient()
+      const { data: adminCheck } = await supabase.rpc('is_admin_user', {
+        user_email: user.email,
+        user_company_id: user.company_id,
+      })
+      isAdmin = adminCheck === true || user.email === 'admin@linkflow.com'
+    } catch (error) {
+      // Fallback: verificar apenas pelo email
+      isAdmin = user.email === 'admin@linkflow.com'
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -22,6 +37,7 @@ export async function GET() {
         name: user.name,
         role: user.role,
         company_id: user.company_id,
+        is_admin: isAdmin,
       },
     })
   } catch (error) {
