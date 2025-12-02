@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import { getDeviceType, generateWhatsAppLink } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(
   request: NextRequest,

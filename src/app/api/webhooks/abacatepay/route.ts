@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import { DEFAULT_LIMITS } from '@/types'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 // Webhook do AbacatePay para processar pagamentos
 // Documentação: https://docs.abacatepay.com/webhooks

@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET() {
   try {
