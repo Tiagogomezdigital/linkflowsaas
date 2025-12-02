@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   Zap, 
@@ -106,11 +106,62 @@ const planos = [
 export default function HomePage() {
   const router = useRouter()
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isChecking, setIsChecking] = useState(true)
 
-  if (typeof window !== 'undefined') {
-    window.addEventListener('scroll', () => {
-      setIsScrolled(window.scrollY > 50)
-    })
+  // Verificar se usuário já está logado e redirecionar
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Verificar se existe cookie de autenticação
+        const hasAuthCookie = document.cookie.includes('auth-token=')
+        
+        if (hasAuthCookie) {
+          // Verificar se o token é válido fazendo uma requisição
+          const response = await fetch('/api/auth/me', {
+            method: 'GET',
+            credentials: 'include',
+          })
+          
+          if (response.ok) {
+            // Usuário autenticado, redirecionar para dashboard
+            router.push('/dashboard/grupos')
+            return
+          }
+        }
+      } catch (error) {
+        // Em caso de erro, continuar mostrando a landing page
+        console.error('Error checking auth:', error)
+      } finally {
+        setIsChecking(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleScroll = () => {
+        setIsScrolled(window.scrollY > 50)
+      }
+      
+      window.addEventListener('scroll', handleScroll)
+      return () => window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  // Mostrar loading enquanto verifica autenticação
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-lime-500/10 border border-lime-500/20 flex items-center justify-center animate-pulse">
+            <Zap className="w-5 h-5 text-lime-500" />
+          </div>
+          <span className="text-text-secondary">Carregando...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
