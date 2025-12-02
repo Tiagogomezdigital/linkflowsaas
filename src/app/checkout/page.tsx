@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Zap, Check, ArrowLeft, Lock, Mail, User, Building2, Globe } from 'lucide-react'
 import Button from '@/components/ui/Button'
@@ -56,7 +56,7 @@ const planos = [
   },
 ]
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [selectedPlanId, setSelectedPlanId] = useState<string>('free')
@@ -371,6 +371,23 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-lime-500/10 border border-lime-500/20 flex items-center justify-center animate-pulse">
+            <Zap className="w-5 h-5 text-lime-500" />
+          </div>
+          <span className="text-text-secondary">Carregando...</span>
+        </div>
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   )
 }
 
