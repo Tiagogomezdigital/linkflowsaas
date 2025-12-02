@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
@@ -49,7 +49,44 @@ const reportItems: NavItem[] = [
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [userEmail, setUserEmail] = useState<string>('')
   const pathname = usePathname()
+
+  useEffect(() => {
+    // Verificar se é admin (apenas admin@linkflow.com ou empresa slug 'admin')
+    const checkAdmin = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const data = await response.json()
+          const email = data.user?.email || ''
+          const companyId = data.user?.company_id || ''
+          
+          setUserEmail(email)
+          
+          // Verificar se é admin pelo email ou empresa
+          if (email === 'admin@linkflow.com') {
+            setIsAdmin(true)
+          } else {
+            // Verificar se a empresa é admin pelo slug
+            const companyResponse = await fetch(`/api/admin/companies?id=${companyId}`)
+            if (companyResponse.ok) {
+              const companyData = await companyResponse.json()
+              const company = Array.isArray(companyData) ? companyData[0] : companyData
+              if (company?.slug === 'admin') {
+                setIsAdmin(true)
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error)
+      }
+    }
+
+    checkAdmin()
+  }, [])
 
   return (
     <aside 
@@ -177,16 +214,18 @@ export default function Sidebar() {
               )}
             </div>
             
-            {/* Link Admin */}
-            <Link
-              href="/admin"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-text-secondary hover:text-white hover:bg-purple-500/10 transition-all duration-200"
-            >
-              <Shield className="w-5 h-5 text-purple-400" />
-              {!isCollapsed && (
-                <span className="font-medium text-purple-400">Painel Admin</span>
-              )}
-            </Link>
+            {/* Link Admin - Apenas para admins */}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-text-secondary hover:text-white hover:bg-purple-500/10 transition-all duration-200"
+              >
+                <Shield className="w-5 h-5 text-purple-400" />
+                {!isCollapsed && (
+                  <span className="font-medium text-purple-400">Painel Admin</span>
+                )}
+              </Link>
+            )}
           </div>
         </nav>
       </div>
@@ -203,8 +242,10 @@ export default function Sidebar() {
           {!isCollapsed && (
             <>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">Admin</p>
-                <p className="text-xs text-text-muted truncate">admin@linkflow.com</p>
+                <p className="text-sm font-medium text-white truncate">
+                  {userEmail.split('@')[0] || 'Usuário'}
+                </p>
+                <p className="text-xs text-text-muted truncate">{userEmail || 'Carregando...'}</p>
               </div>
               <Link
                 href="/logout"
