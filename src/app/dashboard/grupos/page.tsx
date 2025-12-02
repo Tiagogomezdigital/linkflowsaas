@@ -121,32 +121,28 @@ export default function GruposPage() {
       const groupsResponse = await fetch('/api/groups')
       if (groupsResponse.ok) {
         const groupsData = await groupsResponse.json()
-        const groupsWithStats = await Promise.all(
-          groupsData.map(async (group: Group) => {
-            try {
-              const statsResponse = await fetch(`/api/group-stats`)
-              if (statsResponse.ok) {
-                const stats = await statsResponse.json()
-                const groupStats = stats.find((s: any) => s.id === group.id)
-                return {
-                  ...group,
-                  total_numbers: groupStats?.total_numbers || 0,
-                  active_numbers: groupStats?.active_numbers || 0,
-                  total_clicks: groupStats?.total_clicks || 0,
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching stats:', error)
-            }
+        const statsResponse = await fetch('/api/group-stats')
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json()
+          const groupsWithStats = groupsData.map((group: Group) => {
+            const groupStats = stats.find((s: any) => s.id === group.id)
             return {
               ...group,
-              total_numbers: 0,
-              active_numbers: 0,
-              total_clicks: 0,
+              total_numbers: groupStats?.total_numbers || 0,
+              active_numbers: groupStats?.active_numbers || 0,
+              total_clicks: groupStats?.total_clicks || 0,
             }
           })
-        )
-        setGroups(groupsWithStats)
+          setGroups(groupsWithStats)
+        } else {
+          const groupsWithStats = groupsData.map((group: Group) => ({
+            ...group,
+            total_numbers: 0,
+            active_numbers: 0,
+            total_clicks: 0,
+          }))
+          setGroups(groupsWithStats)
+        }
       }
       
       setIsCreateModalOpen(false)
@@ -178,32 +174,28 @@ export default function GruposPage() {
       const groupsResponse = await fetch('/api/groups')
       if (groupsResponse.ok) {
         const groupsData = await groupsResponse.json()
-        const groupsWithStats = await Promise.all(
-          groupsData.map(async (group: Group) => {
-            try {
-              const statsResponse = await fetch(`/api/group-stats`)
-              if (statsResponse.ok) {
-                const stats = await statsResponse.json()
-                const groupStats = stats.find((s: any) => s.id === group.id)
-                return {
-                  ...group,
-                  total_numbers: groupStats?.total_numbers || 0,
-                  active_numbers: groupStats?.active_numbers || 0,
-                  total_clicks: groupStats?.total_clicks || 0,
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching stats:', error)
-            }
+        const statsResponse = await fetch('/api/group-stats')
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json()
+          const groupsWithStats = groupsData.map((group: Group) => {
+            const groupStats = stats.find((s: any) => s.id === group.id)
             return {
               ...group,
-              total_numbers: 0,
-              active_numbers: 0,
-              total_clicks: 0,
+              total_numbers: groupStats?.total_numbers || 0,
+              active_numbers: groupStats?.active_numbers || 0,
+              total_clicks: groupStats?.total_clicks || 0,
             }
           })
-        )
-        setGroups(groupsWithStats)
+          setGroups(groupsWithStats)
+        } else {
+          const groupsWithStats = groupsData.map((group: Group) => ({
+            ...group,
+            total_numbers: 0,
+            active_numbers: 0,
+            total_clicks: 0,
+          }))
+          setGroups(groupsWithStats)
+        }
       }
       
       setIsEditModalOpen(false)
