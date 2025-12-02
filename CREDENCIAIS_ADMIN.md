@@ -1,11 +1,13 @@
 # 🔐 Credenciais de Acesso Admin
 
-## Usuário Administrador Criado
+## ✅ Usuário Administrador Criado e Verificado
 
 ### Credenciais de Login
 
 **Email:** `admin@linkflow.com`  
 **Senha:** `admin123`
+
+> ⚠️ **ATENÇÃO:** A senha foi atualizada e validada no banco de dados. Se ainda não funcionar, verifique os logs do servidor para mais detalhes.
 
 ### Informações da Conta
 
