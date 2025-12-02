@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { DEFAULT_LIMITS } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 // Webhook do AbacatePay para processar pagamentos
 // Documentação: https://docs.abacatepay.com/webhooks
 

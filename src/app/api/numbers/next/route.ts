@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 // Rota pública para rotação de números
 export async function GET(request: NextRequest) {
   try {

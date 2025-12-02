@@ -4,6 +4,8 @@ import { signJWT, setAuthCookie } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 import { DEFAULT_LIMITS } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
