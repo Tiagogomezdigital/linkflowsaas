@@ -24,40 +24,49 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 
-// Mock data - será substituído por dados reais da API
-const mockUsuarios = [
-  {
-    id: '1',
-    name: 'Guilherme Costa',
-    email: 'guilherme@exemplo.com',
-    role: 'owner',
-    company: 'Guilherme Costa',
-    companyId: '1',
-    isActive: true,
-    lastLogin: '2025-12-02T10:30:00',
-    createdAt: '2025-11-04',
-  },
-  {
-    id: '2',
-    name: 'Demo User',
-    email: 'demo@linkflow.com',
-    role: 'owner',
-    company: 'Demo Company',
-    companyId: '2',
-    isActive: true,
-    lastLogin: '2025-12-01T15:45:00',
-    createdAt: '2025-11-10',
-  },
-]
+interface Usuario {
+  id: string
+  name: string
+  email: string
+  role: 'owner' | 'member'
+  company: {
+    id: string
+    name: string
+    slug: string
+  } | null
+  company_id: string
+  is_active: boolean
+  created_at: string
+}
 
 export default function UsuariosPage() {
-  const [usuarios, setUsuarios] = useState(mockUsuarios)
-  const [filteredUsuarios, setFilteredUsuarios] = useState(mockUsuarios)
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [filteredUsuarios, setFilteredUsuarios] = useState<Usuario[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filterRole, setFilterRole] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [selectedUsuario, setSelectedUsuario] = useState<typeof mockUsuarios[0] | null>(null)
+  const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUsuarios = async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch('/api/admin/users')
+        if (response.ok) {
+          const data = await response.json()
+          setUsuarios(data)
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchUsuarios()
+  }, [])
 
   useEffect(() => {
     let result = [...usuarios]
@@ -68,7 +77,8 @@ export default function UsuariosPage() {
         (u) =>
           u.name.toLowerCase().includes(query) ||
           u.email.toLowerCase().includes(query) ||
-          u.company.toLowerCase().includes(query)
+          u.company?.name.toLowerCase().includes(query) ||
+          false
       )
     }
     
@@ -78,7 +88,7 @@ export default function UsuariosPage() {
     
     if (filterStatus) {
       result = result.filter((u) => 
-        filterStatus === 'active' ? u.isActive : !u.isActive
+        filterStatus === 'active' ? u.is_active : !u.is_active
       )
     }
     
@@ -123,8 +133,8 @@ export default function UsuariosPage() {
   ]
 
   // Estatísticas rápidas
-  const totalAtivos = filteredUsuarios.filter(u => u.isActive).length
-  const totalAdmins = filteredUsuarios.filter(u => u.role === 'admin').length
+  const totalAtivos = filteredUsuarios.filter(u => u.is_active).length
+  const totalOwners = filteredUsuarios.filter(u => u.role === 'owner').length
 
   return (
     <>
@@ -149,13 +159,13 @@ export default function UsuariosPage() {
           <p className="text-2xl font-bold text-lime-400">{totalAtivos}</p>
         </Card>
         <Card className="!p-4">
-          <p className="text-sm text-text-secondary">Admins</p>
-          <p className="text-2xl font-bold text-white">{totalAdmins}</p>
+          <p className="text-sm text-text-secondary">Proprietários</p>
+          <p className="text-2xl font-bold text-white">{totalOwners}</p>
         </Card>
         <Card className="!p-4">
           <p className="text-sm text-text-secondary">Empresas</p>
           <p className="text-2xl font-bold text-white">
-            {new Set(filteredUsuarios.map(u => u.companyId)).size}
+            {new Set(filteredUsuarios.map(u => u.company_id).filter(Boolean)).size}
           </p>
         </Card>
       </div>
@@ -202,20 +212,32 @@ export default function UsuariosPage() {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-surface-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Usuário</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Empresa</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Role</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Último Login</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-text-secondary">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsuarios.map((usuario) => (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="w-8 h-8 border-4 border-lime-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-text-secondary">Carregando usuários...</p>
+              </div>
+            </div>
+          ) : filteredUsuarios.length === 0 ? (
+            <div className="text-center py-12 text-text-muted">
+              <p>Nenhum usuário encontrado</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-surface-border">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Usuário</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Empresa</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Role</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Status</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Cadastro</th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-text-secondary">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsuarios.map((usuario) => (
                   <tr key={usuario.id} className="border-b border-surface-border hover:bg-surface-hover transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
@@ -231,12 +253,12 @@ export default function UsuariosPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-text-muted" />
-                        <span className="text-text-secondary">{usuario.company}</span>
+                        <span className="text-text-secondary">{usuario.company?.name || 'Sem empresa'}</span>
                       </div>
                     </td>
                     <td className="py-3 px-4">{getRoleBadge(usuario.role)}</td>
                     <td className="py-3 px-4">
-                      {usuario.isActive ? (
+                      {usuario.is_active ? (
                         <div className="flex items-center gap-1 text-lime-400">
                           <UserCheck className="w-4 h-4" />
                           <span className="text-sm">Ativo</span>
@@ -249,7 +271,7 @@ export default function UsuariosPage() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-text-secondary text-sm">
-                      {formatDate(usuario.lastLogin)}
+                      {formatDate(usuario.created_at)}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end gap-1">
@@ -278,10 +300,11 @@ export default function UsuariosPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -314,7 +337,7 @@ export default function UsuariosPage() {
                 <p className="text-sm text-text-muted mb-1">Empresa</p>
                 <div className="flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-text-muted" />
-                  <p className="text-white">{selectedUsuario.company}</p>
+                  <p className="text-white">{selectedUsuario.company?.name || 'Sem empresa'}</p>
                 </div>
               </div>
               <div className="p-4 bg-background/50 rounded-xl">
@@ -326,7 +349,7 @@ export default function UsuariosPage() {
               </div>
               <div className="p-4 bg-background/50 rounded-xl">
                 <p className="text-sm text-text-muted mb-1">Status</p>
-                {selectedUsuario.isActive ? (
+                {selectedUsuario.is_active ? (
                   <Badge variant="success">Ativo</Badge>
                 ) : (
                   <Badge variant="danger">Inativo</Badge>
@@ -335,15 +358,15 @@ export default function UsuariosPage() {
               <div className="p-4 bg-background/50 rounded-xl">
                 <p className="text-sm text-text-muted mb-1">Cadastro</p>
                 <p className="text-white">
-                  {new Date(selectedUsuario.createdAt).toLocaleDateString('pt-BR')}
+                  {new Date(selectedUsuario.created_at).toLocaleDateString('pt-BR')}
                 </p>
               </div>
             </div>
 
-            {/* Último Login */}
+            {/* Cadastro */}
             <div className="flex items-center gap-2 text-sm text-text-secondary">
               <Calendar className="w-4 h-4" />
-              <span>Último login: {formatDate(selectedUsuario.lastLogin)}</span>
+              <span>Cadastrado em: {formatDate(selectedUsuario.created_at)}</span>
             </div>
 
             {/* Ações */}
@@ -354,7 +377,7 @@ export default function UsuariosPage() {
               <Button variant="outline" leftIcon={<Edit2 className="w-4 h-4" />}>
                 Editar
               </Button>
-              {selectedUsuario.isActive ? (
+              {selectedUsuario.is_active ? (
                 <Button variant="danger" leftIcon={<UserX className="w-4 h-4" />}>
                   Desativar
                 </Button>
