@@ -22,47 +22,62 @@ export async function POST(request: NextRequest) {
     
     console.log('Attempting to login with email:', emailNormalized)
     
-    // Usar chamada HTTP direta à API REST do Supabase para contornar limitação do PostgREST
+    // Usar view no schema public que aponta para redirect.users
+    const supabase = createServiceRoleClient()
+    
     let user: any = null
     let error: any = null
     
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      
-      if (!supabaseUrl || !serviceRoleKey) {
-        throw new Error('Supabase configuration missing')
-      }
-      
-      // Chamada HTTP direta à função RPC
-      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_user_by_email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': serviceRoleKey,
-          'Authorization': `Bearer ${serviceRoleKey}`,
-          'Prefer': 'return=representation',
-        },
-        body: JSON.stringify({ user_email: emailNormalized }),
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: response.statusText }))
-        console.error('RPC HTTP error:', response.status, errorData)
-        error = { message: errorData.message || 'Failed to fetch user', code: response.status }
-      } else {
-        const data = await response.json()
-        if (Array.isArray(data) && data.length > 0) {
-          user = data[0]
-          console.log('User found via direct RPC call:', user.email)
-        } else {
-          console.log('User not found via RPC')
-          error = { message: 'User not found' }
+    // Tentar usar view no schema public primeiro
+    const { data: viewData, error: viewError } = await supabase
+      .from('users_view')
+      .select('id, email, name, company_id, role, password_hash, is_active')
+      .eq('email', emailNormalized)
+      .single()
+    
+    if (!viewError && viewData) {
+      user = viewData
+      console.log('User found via view:', user.email)
+    } else {
+      // Fallback: tentar função RPC via HTTP direto
+      console.log('View query failed, trying direct RPC call')
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        
+        if (!supabaseUrl || !serviceRoleKey) {
+          throw new Error('Supabase configuration missing')
         }
+        
+        const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_user_by_email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': serviceRoleKey,
+            'Authorization': `Bearer ${serviceRoleKey}`,
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({ user_email: emailNormalized }),
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: response.statusText }))
+          console.error('RPC HTTP error:', response.status, errorData)
+          error = { message: errorData.message || 'Failed to fetch user', code: response.status }
+        } else {
+          const data = await response.json()
+          if (Array.isArray(data) && data.length > 0) {
+            user = data[0]
+            console.log('User found via direct RPC call:', user.email)
+          } else {
+            console.log('User not found via RPC')
+            error = { message: 'User not found' }
+          }
+        }
+      } catch (fetchError: any) {
+        console.error('Fetch error:', fetchError)
+        error = { message: fetchError.message || 'Failed to connect to database' }
       }
-    } catch (fetchError: any) {
-      console.error('Fetch error:', fetchError)
-      error = { message: fetchError.message || 'Failed to connect to database' }
     }
 
     if (error) {
