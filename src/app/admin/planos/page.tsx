@@ -208,15 +208,15 @@ export default function PlanosPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">Números/Grupo</span>
+                <span className="text-text-muted">Links/Mês</span>
                 <span className="text-white font-medium">
-                  {plano.features.maxNumbersPerGroup === -1 ? <Infinity className="w-4 h-4 inline" /> : plano.features.maxNumbersPerGroup}
+                  {plano.features.maxLinksPerMonth === -1 ? <Infinity className="w-4 h-4 inline" /> : plano.features.maxLinksPerMonth.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">Total Números</span>
+                <span className="text-text-muted">Membros</span>
                 <span className="text-white font-medium">
-                  {plano.features.maxTotalNumbers === -1 ? <Infinity className="w-4 h-4 inline" /> : plano.features.maxTotalNumbers}
+                  {plano.features.maxTeamMembers === -1 ? <Infinity className="w-4 h-4 inline" /> : plano.features.maxTeamMembers}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
