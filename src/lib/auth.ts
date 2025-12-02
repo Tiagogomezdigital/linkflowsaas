@@ -36,7 +36,8 @@ export async function signJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>): Promise
 export async function verifyJWT(token: string): Promise<JWTPayload | null> {
   try {
     const { payload } = await jose.jwtVerify(token, JWT_SECRET)
-    return payload as JWTPayload
+    // Cast seguro através de unknown
+    return payload as unknown as JWTPayload
   } catch {
     return null
   }
