@@ -24,10 +24,19 @@ export async function POST(request: NextRequest) {
     const { data: user, error } = await supabase
       .from('users')
       .select('id, email, name, company_id, role, password_hash, is_active')
-      .eq('email', email.toLowerCase())
+      .eq('email', email.toLowerCase().trim())
       .single()
 
-    if (error || !user) {
+    if (error) {
+      console.error('Error fetching user:', error)
+      return NextResponse.json(
+        { error: 'Invalid credentials', details: error.message },
+        { status: 401 }
+      )
+    }
+
+    if (!user) {
+      console.error('User not found:', email.toLowerCase().trim())
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -51,15 +60,19 @@ export async function POST(request: NextRequest) {
 
     // Suporta tanto hash bcrypt quanto senha em texto (para migração)
     let isValid = false
-    if (user.password_hash.startsWith('$2')) {
+    if (user.password_hash && user.password_hash.startsWith('$2')) {
       // Hash bcrypt
       isValid = await bcrypt.compare(password, user.password_hash)
+      if (!isValid) {
+        console.error('Password comparison failed for user:', user.email)
+      }
     } else {
       // Fallback para senha em texto (migração)
       isValid = user.password_hash === password
     }
 
     if (!isValid) {
+      console.error('Invalid password for user:', user.email)
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
