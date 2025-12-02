@@ -1,5 +1,7 @@
--- Criar função RPC para buscar usuário por email (garantindo schema redirect)
-CREATE OR REPLACE FUNCTION redirect.get_user_by_email(user_email TEXT)
+-- Criar função RPC no schema public para buscar usuário por email
+-- (schema public é exposto via PostgREST, então a função precisa estar aqui)
+-- A função acessa redirect.users usando SET search_path
+CREATE OR REPLACE FUNCTION public.get_user_by_email(user_email TEXT)
 RETURNS TABLE (
   id UUID,
   email TEXT,
@@ -11,6 +13,7 @@ RETURNS TABLE (
 ) 
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = redirect, public
 AS $$
 BEGIN
   RETURN QUERY
@@ -27,6 +30,6 @@ BEGIN
 END;
 $$;
 
--- Dar permissão para service_role usar a função
-GRANT EXECUTE ON FUNCTION redirect.get_user_by_email(TEXT) TO service_role;
+-- Dar permissão para service_role e anon usar a função
+GRANT EXECUTE ON FUNCTION public.get_user_by_email(TEXT) TO service_role, anon;
 
