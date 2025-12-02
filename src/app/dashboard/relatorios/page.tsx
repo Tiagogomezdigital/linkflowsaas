@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { 
   FileText, 
   Download, 
@@ -22,41 +22,6 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import type { Group } from '@/types'
 
-// Mock data
-const mockGroups: Group[] = [
-  { id: '1', company_id: '1', name: 'Grupo Teste Guilherme', slug: 'grupo-teste-guilherme', is_active: true, created_at: '', updated_at: '' },
-  { id: '2', company_id: '1', name: 'Form Test Group 1763981674072', slug: 'form-test-group-1763981674072', is_active: true, created_at: '', updated_at: '' },
-  { id: '3', company_id: '1', name: 'Form Test Group 1763981673211', slug: 'form-test-group-1763981673211', is_active: true, created_at: '', updated_at: '' },
-  { id: '4', company_id: '1', name: 'Form Test Group 1763981671079', slug: 'form-test-group-1763981671079', is_active: true, created_at: '', updated_at: '' },
-  { id: '5', company_id: '1', name: 'Teste E2E Vendas', slug: 'teste-e2e-vendas', is_active: true, created_at: '', updated_at: '' },
-  { id: '6', company_id: '1', name: 'Grupo Beta Teste', slug: 'grupo-beta-teste', is_active: true, created_at: '', updated_at: '' },
-  { id: '7', company_id: '1', name: 'Grupo Alpha Teste', slug: 'grupo-alpha-teste', is_active: true, created_at: '', updated_at: '' },
-]
-
-const mockDailyClicks = [
-  { date: '2025-11-26', clicks: 45 },
-  { date: '2025-11-27', clicks: 67 },
-  { date: '2025-11-28', clicks: 52 },
-  { date: '2025-11-29', clicks: 89 },
-  { date: '2025-11-30', clicks: 34 },
-  { date: '2025-12-01', clicks: 78 },
-  { date: '2025-12-02', clicks: 56 },
-]
-
-const mockGroupRanking = [
-  { group_id: '1', group_name: 'Grupo Teste Guilherme', clicks: 156 },
-  { group_id: '5', group_name: 'Teste E2E Vendas', clicks: 89 },
-  { group_id: '2', group_name: 'Form Test Group 1763981674072', clicks: 67 },
-  { group_id: '6', group_name: 'Grupo Beta Teste', clicks: 45 },
-  { group_id: '7', group_name: 'Grupo Alpha Teste', clicks: 32 },
-]
-
-const mockDeviceDistribution = [
-  { device_type: 'mobile', count: 245, percentage: 65 },
-  { device_type: 'desktop', count: 98, percentage: 26 },
-  { device_type: 'tablet', count: 34, percentage: 9 },
-]
-
 const periodOptions = [
   { value: 'today', label: 'Hoje' },
   { value: 'yesterday', label: 'Ontem' },
@@ -66,17 +31,64 @@ const periodOptions = [
   { value: 'lastMonth', label: 'Mês passado' },
 ]
 
+interface DailyClick {
+  date: string
+  clicks: number
+}
+
+interface GroupRanking {
+  group_id: string
+  group_name: string
+  clicks: number
+}
+
+interface DeviceDistribution {
+  device_type: string
+  count: number
+  percentage: number
+}
+
 export default function RelatoriosPage() {
+  const [groups, setGroups] = useState<Group[]>([])
   const [isFiltersOpen, setIsFiltersOpen] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('today')
-  const [selectedGroups, setSelectedGroups] = useState<string[]>(mockGroups.map(g => g.id))
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [reportGenerated, setReportGenerated] = useState(false)
+  
+  // Dados do relatório
+  const [dailyClicks, setDailyClicks] = useState<DailyClick[]>([])
+  const [groupRanking, setGroupRanking] = useState<GroupRanking[]>([])
+  const [deviceDistribution, setDeviceDistribution] = useState<DeviceDistribution[]>([])
+  const [totalClicks, setTotalClicks] = useState(0)
 
   const todayDate = new Date().toLocaleDateString('pt-BR')
 
+  // Buscar grupos ao carregar a página
+  useEffect(() => {
+    const fetchGroups = async () => {
+      setIsInitialLoading(true)
+      try {
+        const response = await fetch('/api/groups')
+        if (response.ok) {
+          const data = await response.json()
+          setGroups(data)
+          // Selecionar todos os grupos por padrão
+          setSelectedGroups(data.map((g: Group) => g.id))
+        }
+      } catch (error) {
+        console.error('Error fetching groups:', error)
+      } finally {
+        setIsInitialLoading(false)
+      }
+    }
+
+    fetchGroups()
+  }, [])
+
   const handleSelectAll = () => {
-    setSelectedGroups(mockGroups.map(g => g.id))
+    setSelectedGroups(groups.map(g => g.id))
   }
 
   const handleSelectNone = () => {
@@ -92,27 +104,71 @@ export default function RelatoriosPage() {
   }
 
   const handleGenerateReport = async () => {
+    if (selectedGroups.length === 0) {
+      alert('Selecione pelo menos um grupo para gerar o relatório')
+      return
+    }
+
     setIsLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      const response = await fetch('/api/stats/filtered', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          period: selectedPeriod,
+          groupIds: selectedGroups,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao gerar relatório')
+      }
+
+      const data = await response.json()
+      
+      setDailyClicks(data.daily_clicks || [])
+      setGroupRanking(data.group_ranking || [])
+      setDeviceDistribution(data.device_distribution || [])
+      setTotalClicks(data.total_clicks || 0)
       setReportGenerated(true)
+    } catch (error) {
+      console.error('Error generating report:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao gerar relatório')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleExportCSV = () => {
-    // Simular exportação CSV
-    alert('Exportando relatório em CSV...')
+    // Criar CSV com os dados do relatório
+    const csvRows = [
+      ['Data', 'Cliques', 'Grupo', 'Dispositivo'],
+      ...dailyClicks.flatMap(day => 
+        groupRanking.map(group => [
+          day.date,
+          day.clicks.toString(),
+          group.group_name,
+          deviceDistribution[0]?.device_type || 'unknown'
+        ])
+      )
+    ]
+
+    const csvContent = csvRows.map(row => row.join(',')).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `relatorio-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
-  const totalClicks = useMemo(() => {
-    return mockDailyClicks.reduce((acc, day) => acc + day.clicks, 0)
-  }, [])
-
   const maxClicks = useMemo(() => {
-    return Math.max(...mockDailyClicks.map(d => d.clicks))
-  }, [])
+    return dailyClicks.length > 0 ? Math.max(...dailyClicks.map(d => d.clicks)) : 0
+  }, [dailyClicks])
 
   return (
     <>
@@ -157,14 +213,14 @@ export default function RelatoriosPage() {
           {isFiltersOpen && (
             <>
               {/* Info */}
-              <div className="flex items-center gap-6 text-sm text-text-secondary">
+                <div className="flex items-center gap-6 text-sm text-text-secondary">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
                   <span>Hoje: {todayDate}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <FilterIcon className="w-4 h-4" />
-                  <span>Grupos: {selectedGroups.length} selecionados</span>
+                  <span>Grupos: {selectedGroups.length} de {groups.length} selecionados</span>
                 </div>
               </div>
 
@@ -190,10 +246,11 @@ export default function RelatoriosPage() {
                     <button
                       onClick={handleSelectAll}
                       className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                        selectedGroups.length === mockGroups.length
+                        selectedGroups.length === groups.length && groups.length > 0
                           ? 'bg-surface-hover text-white'
                           : 'text-text-muted hover:text-white'
                       }`}
+                      disabled={groups.length === 0}
                     >
                       Todos
                     </button>
@@ -204,35 +261,51 @@ export default function RelatoriosPage() {
                           ? 'bg-surface-hover text-white'
                           : 'text-text-muted hover:text-white'
                       }`}
+                      disabled={groups.length === 0}
                     >
                       Nenhum
                     </button>
                   </div>
                 </div>
 
-                <div className="max-h-60 overflow-y-auto space-y-1 bg-background/50 rounded-xl p-3 border border-surface-border">
-                  {mockGroups.map((group) => (
-                    <label
-                      key={group.id}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover cursor-pointer transition-colors"
-                    >
-                      <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
-                        selectedGroups.includes(group.id)
-                          ? 'bg-lime-500 border-lime-500'
-                          : 'border-surface-border'
-                      }`}>
-                        {selectedGroups.includes(group.id) && (
-                          <Check className="w-3 h-3 text-black" />
-                        )}
-                      </div>
-                      <span className="text-sm text-white">{group.name}</span>
-                    </label>
-                  ))}
-                </div>
+                {isInitialLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-4 border-lime-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-text-secondary">Carregando grupos...</p>
+                    </div>
+                  </div>
+                ) : groups.length === 0 ? (
+                  <div className="text-center py-8 text-text-muted">
+                    <p>Nenhum grupo encontrado. Crie grupos primeiro.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="max-h-60 overflow-y-auto space-y-1 bg-background/50 rounded-xl p-3 border border-surface-border">
+                      {groups.map((group) => (
+                        <label
+                          key={group.id}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover cursor-pointer transition-colors"
+                        >
+                          <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                            selectedGroups.includes(group.id)
+                              ? 'bg-lime-500 border-lime-500'
+                              : 'border-surface-border'
+                          }`}>
+                            {selectedGroups.includes(group.id) && (
+                              <Check className="w-3 h-3 text-black" />
+                            )}
+                          </div>
+                          <span className="text-sm text-white">{group.name}</span>
+                        </label>
+                      ))}
+                    </div>
 
-                <p className="mt-2 text-xs text-text-muted">
-                  {selectedGroups.length} de {mockGroups.length} grupos selecionados
-                </p>
+                    <p className="mt-2 text-xs text-text-muted">
+                      {selectedGroups.length} de {groups.length} grupos selecionados
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Botão Gerar */}
@@ -277,7 +350,7 @@ export default function RelatoriosPage() {
                   <Users className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-text-muted">Grupos Ativos</p>
+                  <p className="text-sm text-text-muted">Grupos Selecionados</p>
                   <p className="text-2xl font-bold text-white">{selectedGroups.length}</p>
                 </div>
               </div>
@@ -288,7 +361,7 @@ export default function RelatoriosPage() {
                 <div>
                   <p className="text-sm text-text-muted">Média Diária</p>
                   <p className="text-2xl font-bold text-white">
-                    {Math.round(totalClicks / mockDailyClicks.length)}
+                    {dailyClicks.length > 0 ? Math.round(totalClicks / dailyClicks.length) : 0}
                   </p>
                 </div>
               </div>
@@ -307,92 +380,109 @@ export default function RelatoriosPage() {
           {/* Gráfico de Cliques Diários */}
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Cliques por Dia</h3>
-            <div className="space-y-3">
-              {mockDailyClicks.map((day) => (
-                <div key={day.date} className="flex items-center gap-3">
-                  <span className="text-xs text-text-muted w-20">
-                    {new Date(day.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}
-                  </span>
-                  <div className="flex-1 h-6 bg-background rounded-lg overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-lime-500 to-lime-400 rounded-lg transition-all duration-500"
-                      style={{ width: `${(day.clicks / maxClicks) * 100}%` }}
-                    />
+            {dailyClicks.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p>Nenhum dado disponível para o período selecionado</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {dailyClicks.map((day) => (
+                  <div key={day.date} className="flex items-center gap-3">
+                    <span className="text-xs text-text-muted w-20">
+                      {new Date(day.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}
+                    </span>
+                    <div className="flex-1 h-6 bg-background rounded-lg overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-lime-500 to-lime-400 rounded-lg transition-all duration-500"
+                        style={{ width: maxClicks > 0 ? `${(day.clicks / maxClicks) * 100}%` : '0%' }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-white w-12 text-right">
+                      {day.clicks}
+                    </span>
                   </div>
-                  <span className="text-sm font-medium text-white w-12 text-right">
-                    {day.clicks}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* Ranking de Grupos */}
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Ranking de Grupos</h3>
-            <div className="space-y-3">
-              {mockGroupRanking.map((group, index) => (
-                <div key={group.group_id} className="flex items-center gap-3">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    index === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                    index === 1 ? 'bg-gray-400/20 text-gray-400' :
-                    index === 2 ? 'bg-orange-500/20 text-orange-400' :
-                    'bg-surface text-text-muted'
-                  }`}>
-                    {index + 1}
-                  </span>
-                  <span className="flex-1 text-sm text-white truncate">{group.group_name}</span>
-                  <span className="text-sm font-medium text-lime-400">{group.clicks} cliques</span>
-                </div>
-              ))}
-            </div>
+            {groupRanking.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p>Nenhum dado disponível para o período selecionado</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {groupRanking.map((group, index) => (
+                  <div key={group.group_id} className="flex items-center gap-3">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      index === 0 ? 'bg-yellow-500/20 text-yellow-400' :
+                      index === 1 ? 'bg-gray-400/20 text-gray-400' :
+                      index === 2 ? 'bg-orange-500/20 text-orange-400' :
+                      'bg-surface text-text-muted'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <span className="flex-1 text-sm text-white truncate">{group.group_name}</span>
+                    <span className="text-sm font-medium text-lime-400">{group.clicks} cliques</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* Distribuição por Dispositivo */}
           <Card className="lg:col-span-2">
             <h3 className="text-lg font-semibold text-white mb-4">Distribuição por Dispositivo</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {mockDeviceDistribution.map((device) => (
-                <div key={device.device_type} className="text-center p-4 bg-background/50 rounded-xl">
-                  <div className="text-3xl font-bold text-white mb-1">{device.percentage}%</div>
-                  <div className="text-sm text-text-muted capitalize">{device.device_type}</div>
-                  <div className="text-xs text-text-muted mt-1">{device.count} cliques</div>
+            {deviceDistribution.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p>Nenhum dado disponível para o período selecionado</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  {deviceDistribution.map((device) => (
+                    <div key={device.device_type} className="text-center p-4 bg-background/50 rounded-xl">
+                      <div className="text-3xl font-bold text-white mb-1">{device.percentage}%</div>
+                      <div className="text-sm text-text-muted capitalize">{device.device_type}</div>
+                      <div className="text-xs text-text-muted mt-1">{device.count} cliques</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            
-            {/* Barra de progresso */}
-            <div className="mt-4 h-3 bg-background rounded-full overflow-hidden flex">
-              <div 
-                className="bg-lime-500 transition-all duration-500"
-                style={{ width: `${mockDeviceDistribution[0].percentage}%` }}
-                title="Mobile"
-              />
-              <div 
-                className="bg-blue-500 transition-all duration-500"
-                style={{ width: `${mockDeviceDistribution[1].percentage}%` }}
-                title="Desktop"
-              />
-              <div 
-                className="bg-purple-500 transition-all duration-500"
-                style={{ width: `${mockDeviceDistribution[2].percentage}%` }}
-                title="Tablet"
-              />
-            </div>
-            <div className="flex justify-center gap-6 mt-3">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-lime-500 rounded-full" />
-                <span className="text-xs text-text-muted">Mobile</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full" />
-                <span className="text-xs text-text-muted">Desktop</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-purple-500 rounded-full" />
-                <span className="text-xs text-text-muted">Tablet</span>
-              </div>
-            </div>
+                
+                {/* Barra de progresso */}
+                {deviceDistribution.length > 0 && (
+                  <>
+                    <div className="mt-4 h-3 bg-background rounded-full overflow-hidden flex">
+                      {deviceDistribution.map((device, index) => {
+                        const colors = ['bg-lime-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500']
+                        return (
+                          <div 
+                            key={device.device_type}
+                            className={`${colors[index] || 'bg-gray-500'} transition-all duration-500`}
+                            style={{ width: `${device.percentage}%` }}
+                            title={device.device_type}
+                          />
+                        )
+                      })}
+                    </div>
+                    <div className="flex justify-center gap-6 mt-3 flex-wrap">
+                      {deviceDistribution.map((device, index) => {
+                        const colors = ['bg-lime-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500']
+                        return (
+                          <div key={device.device_type} className="flex items-center gap-2">
+                            <div className={`w-3 h-3 ${colors[index] || 'bg-gray-500'} rounded-full`} />
+                            <span className="text-xs text-text-muted capitalize">{device.device_type}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </Card>
         </div>
       )}
