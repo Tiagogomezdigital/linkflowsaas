@@ -20,12 +20,51 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient()
 
-    // Buscar usuário pelo email
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, email, name, company_id, role, password_hash, is_active')
-      .eq('email', email.toLowerCase().trim())
-      .single()
+    // Buscar usuário pelo email usando RPC (garante schema redirect)
+    const emailNormalized = email.toLowerCase().trim()
+    
+    console.log('Attempting to login with email:', emailNormalized)
+    
+    // Tentar usar RPC primeiro (garante schema redirect)
+    let user: any = null
+    let error: any = null
+    
+    try {
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_user_by_email', { user_email: emailNormalized })
+      
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        user = rpcData[0]
+        console.log('User found via RPC:', user.email)
+      } else {
+        // Fallback: consulta direta
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, email, name, company_id, role, password_hash, is_active')
+          .eq('email', emailNormalized)
+          .single()
+        
+        user = userData
+        error = userError
+        console.log('Query result:', { 
+          found: !!user, 
+          error: error?.message, 
+          email: user?.email,
+          hasPasswordHash: !!user?.password_hash 
+        })
+      }
+    } catch (err) {
+      console.error('Error in user lookup:', err)
+      // Fallback: consulta direta
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, email, name, company_id, role, password_hash, is_active')
+        .eq('email', emailNormalized)
+        .single()
+      
+      user = userData
+      error = userError
+    }
 
     if (error) {
       console.error('Error fetching user:', error)
