@@ -22,54 +22,6 @@ import EmptyState from '@/components/ui/EmptyState'
 import { formatPhone, generateWhatsAppLink } from '@/lib/utils'
 import type { WhatsAppNumber, Group } from '@/types'
 
-// Mock data
-const mockGroups: Group[] = [
-  { id: '1', company_id: '1', name: 'Grupo Teste Guilherme', slug: 'grupo-teste-guilherme', is_active: true, created_at: '', updated_at: '' },
-  { id: '2', company_id: '1', name: 'Vendas', slug: 'vendas', is_active: true, created_at: '', updated_at: '' },
-  { id: '3', company_id: '1', name: 'Suporte', slug: 'suporte', is_active: true, created_at: '', updated_at: '' },
-]
-
-const mockNumbers: (WhatsAppNumber & { group?: Group })[] = [
-  {
-    id: '1',
-    company_id: '1',
-    group_id: '1',
-    phone: '5511999999999',
-    name: 'João - Vendas',
-    is_active: true,
-    click_count: 45,
-    last_used_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    group: mockGroups[0],
-  },
-  {
-    id: '2',
-    company_id: '1',
-    group_id: '1',
-    phone: '5511988888888',
-    name: 'Maria - Suporte',
-    custom_message: 'Olá, em que posso ajudar?',
-    is_active: true,
-    click_count: 32,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    group: mockGroups[0],
-  },
-  {
-    id: '3',
-    company_id: '1',
-    group_id: '2',
-    phone: '5511977777777',
-    name: 'Carlos - Vendas',
-    is_active: false,
-    click_count: 18,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    group: mockGroups[1],
-  },
-]
-
 interface NumberFormData {
   phone: string
   name: string
@@ -79,12 +31,14 @@ interface NumberFormData {
 }
 
 export default function NumerosPage() {
-  const [numbers, setNumbers] = useState(mockNumbers)
-  const [filteredNumbers, setFilteredNumbers] = useState(mockNumbers)
+  const [numbers, setNumbers] = useState<(WhatsAppNumber & { group?: Group })[]>([])
+  const [filteredNumbers, setFilteredNumbers] = useState<(WhatsAppNumber & { group?: Group })[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filterGroup, setFilterGroup] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -99,6 +53,34 @@ export default function NumerosPage() {
     group_id: '',
     is_active: true,
   })
+
+  // Buscar grupos e números da API
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsInitialLoading(true)
+      try {
+        // Buscar grupos
+        const groupsResponse = await fetch('/api/groups')
+        if (groupsResponse.ok) {
+          const groupsData = await groupsResponse.json()
+          setGroups(groupsData)
+        }
+
+        // Buscar números
+        const numbersResponse = await fetch('/api/numbers')
+        if (numbersResponse.ok) {
+          const numbersData = await numbersResponse.json()
+          setNumbers(numbersData)
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setIsInitialLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   // Filter numbers
   useEffect(() => {
@@ -148,25 +130,29 @@ export default function NumerosPage() {
     setIsLoading(true)
     
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      
-      const newNumber: WhatsAppNumber & { group?: Group } = {
-        id: Date.now().toString(),
-        company_id: '1',
-        group_id: formData.group_id,
-        phone: formData.phone.replace(/\D/g, ''),
-        name: formData.name || undefined,
-        custom_message: formData.custom_message || undefined,
-        is_active: formData.is_active,
-        click_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        group: mockGroups.find((g) => g.id === formData.group_id),
+      const response = await fetch('/api/numbers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao adicionar número')
+      }
+
+      // Recarregar números
+      const numbersResponse = await fetch('/api/numbers')
+      if (numbersResponse.ok) {
+        const numbersData = await numbersResponse.json()
+        setNumbers(numbersData)
       }
       
-      setNumbers((prev) => [newNumber, ...prev])
       setIsAddModalOpen(false)
       resetForm()
+    } catch (error) {
+      console.error('Error adding number:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao adicionar número')
     } finally {
       setIsLoading(false)
     }
@@ -179,28 +165,30 @@ export default function NumerosPage() {
     setIsLoading(true)
     
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      
-      setNumbers((prev) =>
-        prev.map((n) =>
-          n.id === selectedNumber.id
-            ? {
-                ...n,
-                phone: formData.phone.replace(/\D/g, ''),
-                name: formData.name || undefined,
-                custom_message: formData.custom_message || undefined,
-                group_id: formData.group_id,
-                is_active: formData.is_active,
-                updated_at: new Date().toISOString(),
-                group: mockGroups.find((g) => g.id === formData.group_id),
-              }
-            : n
-        )
-      )
+      const response = await fetch(`/api/numbers/${selectedNumber.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao atualizar número')
+      }
+
+      // Recarregar números
+      const numbersResponse = await fetch('/api/numbers')
+      if (numbersResponse.ok) {
+        const numbersData = await numbersResponse.json()
+        setNumbers(numbersData)
+      }
       
       setIsEditModalOpen(false)
       setSelectedNumber(null)
       resetForm()
+    } catch (error) {
+      console.error('Error updating number:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao atualizar número')
     } finally {
       setIsLoading(false)
     }
@@ -209,7 +197,29 @@ export default function NumerosPage() {
   const handleDeleteNumber = async (number: WhatsAppNumber) => {
     if (!confirm(`Tem certeza que deseja excluir o número ${formatPhone(number.phone)}?`)) return
     
-    setNumbers((prev) => prev.filter((n) => n.id !== number.id))
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/numbers/${number.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao excluir número')
+      }
+
+      // Recarregar números
+      const numbersResponse = await fetch('/api/numbers')
+      if (numbersResponse.ok) {
+        const numbersData = await numbersResponse.json()
+        setNumbers(numbersData)
+      }
+    } catch (error) {
+      console.error('Error deleting number:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao excluir número')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const openEditModal = (number: WhatsAppNumber & { group?: Group }) => {
@@ -226,7 +236,7 @@ export default function NumerosPage() {
 
   const groupOptions = [
     { value: '', label: 'Todos os grupos' },
-    ...mockGroups.map((g) => ({ value: g.id, label: g.name })),
+    ...groups.map((g) => ({ value: g.id, label: g.name })),
   ]
 
   const statusOptions = [
@@ -303,7 +313,14 @@ export default function NumerosPage() {
           </div>
 
           {/* Table or Empty State */}
-          {filteredNumbers.length === 0 ? (
+          {isInitialLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="w-8 h-8 border-4 border-lime-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-text-secondary">Carregando números...</p>
+              </div>
+            </div>
+          ) : filteredNumbers.length === 0 ? (
             <EmptyState
               icon={<Phone className="w-8 h-8" />}
               title="Nenhum número cadastrado"
@@ -418,7 +435,7 @@ export default function NumerosPage() {
           
           <Select
             label="Grupo"
-            options={mockGroups.map((g) => ({ value: g.id, label: g.name }))}
+            options={groups.map((g) => ({ value: g.id, label: g.name }))}
             value={formData.group_id}
             onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
             placeholder="Selecione um grupo"
@@ -496,7 +513,7 @@ export default function NumerosPage() {
           
           <Select
             label="Grupo"
-            options={mockGroups.map((g) => ({ value: g.id, label: g.name }))}
+            options={groups.map((g) => ({ value: g.id, label: g.name }))}
             value={formData.group_id}
             onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
             required

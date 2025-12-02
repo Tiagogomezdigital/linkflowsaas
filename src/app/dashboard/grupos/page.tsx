@@ -13,62 +13,76 @@ import GroupForm from '@/components/groups/GroupForm'
 import AddNumberModal from '@/components/groups/AddNumberModal'
 import type { Group, WhatsAppNumber } from '@/types'
 
-// Dados mock para demonstração
-const mockGroups: (Group & { total_numbers: number; active_numbers: number; total_clicks: number })[] = [
-  {
-    id: '1',
-    company_id: '1',
-    name: 'Grupo Teste Guilherme',
-    slug: 'grupo-teste-guilherme',
-    description: 'Grupo de teste para testar adição de números',
-    default_message: 'Olá! Vi seu anúncio e gostaria de mais informações.',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    total_numbers: 5,
-    active_numbers: 3,
-    total_clicks: 127,
-  },
-  {
-    id: '2',
-    company_id: '1',
-    name: 'Form Test Group 1763981674072',
-    slug: 'form-test-group-1763981674072',
-    description: 'Test group from form page',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    total_numbers: 0,
-    active_numbers: 0,
-    total_clicks: 0,
-  },
-  {
-    id: '3',
-    company_id: '1',
-    name: 'Form Test Group 1763981673211',
-    slug: 'form-test-group-1763981673211',
-    description: 'Test group from form page',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    total_numbers: 0,
-    active_numbers: 0,
-    total_clicks: 0,
-  },
-]
-
 export default function GruposPage() {
-  const [groups, setGroups] = useState(mockGroups)
-  const [filteredGroups, setFilteredGroups] = useState(mockGroups)
+  const [groups, setGroups] = useState<(Group & { total_numbers: number; active_numbers: number; total_clicks: number })[]>([])
+  const [filteredGroups, setFilteredGroups] = useState<(Group & { total_numbers: number; active_numbers: number; total_clicks: number })[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
+
+  // Buscar grupos da API
+  useEffect(() => {
+    const fetchGroups = async () => {
+      setIsInitialLoading(true)
+      try {
+        const response = await fetch('/api/groups')
+        if (response.ok) {
+          const data = await response.json()
+          // Buscar estatísticas de cliques para todos os grupos de uma vez
+          try {
+            const statsResponse = await fetch('/api/group-stats')
+            if (statsResponse.ok) {
+              const stats = await statsResponse.json()
+              const groupsWithStats = data.map((group: Group) => {
+                const groupStats = stats.find((s: any) => s.id === group.id)
+                return {
+                  ...group,
+                  total_numbers: groupStats?.total_numbers || 0,
+                  active_numbers: groupStats?.active_numbers || 0,
+                  total_clicks: groupStats?.total_clicks || 0,
+                }
+              })
+              setGroups(groupsWithStats)
+            } else {
+              // Se não conseguir buscar stats, usar dados básicos
+              const groupsWithStats = data.map((group: Group) => ({
+                ...group,
+                total_numbers: 0,
+                active_numbers: 0,
+                total_clicks: 0,
+              }))
+              setGroups(groupsWithStats)
+            }
+          } catch (error) {
+            console.error('Error fetching stats:', error)
+            // Se der erro, usar dados básicos
+            const groupsWithStats = data.map((group: Group) => ({
+              ...group,
+              total_numbers: 0,
+              active_numbers: 0,
+              total_clicks: 0,
+            }))
+            setGroups(groupsWithStats)
+          }
+        } else {
+          console.error('Failed to fetch groups')
+        }
+      } catch (error) {
+        console.error('Error fetching groups:', error)
+      } finally {
+        setIsInitialLoading(false)
+      }
+    }
+
+    fetchGroups()
+  }, [])
 
   // Filter groups by search
   useEffect(() => {
@@ -90,22 +104,55 @@ export default function GruposPage() {
   const handleCreateGroup = async (data: Partial<Group>) => {
     setIsLoading(true)
     try {
-      // Simular chamada API
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao criar grupo')
+      }
+
+      const newGroup = await response.json()
       
-      const newGroup = {
-        ...data,
-        id: Date.now().toString(),
-        company_id: '1',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        total_numbers: 0,
-        active_numbers: 0,
-        total_clicks: 0,
-      } as Group & { total_numbers: number; active_numbers: number; total_clicks: number }
+      // Recarregar grupos
+      const groupsResponse = await fetch('/api/groups')
+      if (groupsResponse.ok) {
+        const groupsData = await groupsResponse.json()
+        const groupsWithStats = await Promise.all(
+          groupsData.map(async (group: Group) => {
+            try {
+              const statsResponse = await fetch(`/api/group-stats`)
+              if (statsResponse.ok) {
+                const stats = await statsResponse.json()
+                const groupStats = stats.find((s: any) => s.id === group.id)
+                return {
+                  ...group,
+                  total_numbers: groupStats?.total_numbers || 0,
+                  active_numbers: groupStats?.active_numbers || 0,
+                  total_clicks: groupStats?.total_clicks || 0,
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching stats:', error)
+            }
+            return {
+              ...group,
+              total_numbers: 0,
+              active_numbers: 0,
+              total_clicks: 0,
+            }
+          })
+        )
+        setGroups(groupsWithStats)
+      }
       
-      setGroups((prev) => [newGroup, ...prev])
       setIsCreateModalOpen(false)
+    } catch (error) {
+      console.error('Error creating group:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao criar grupo')
     } finally {
       setIsLoading(false)
     }
@@ -116,15 +163,54 @@ export default function GruposPage() {
     
     setIsLoading(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.id === selectedGroup.id ? { ...g, ...data, updated_at: new Date().toISOString() } : g
+      const response = await fetch(`/api/groups/${selectedGroup.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao atualizar grupo')
+      }
+
+      // Recarregar grupos
+      const groupsResponse = await fetch('/api/groups')
+      if (groupsResponse.ok) {
+        const groupsData = await groupsResponse.json()
+        const groupsWithStats = await Promise.all(
+          groupsData.map(async (group: Group) => {
+            try {
+              const statsResponse = await fetch(`/api/group-stats`)
+              if (statsResponse.ok) {
+                const stats = await statsResponse.json()
+                const groupStats = stats.find((s: any) => s.id === group.id)
+                return {
+                  ...group,
+                  total_numbers: groupStats?.total_numbers || 0,
+                  active_numbers: groupStats?.active_numbers || 0,
+                  total_clicks: groupStats?.total_clicks || 0,
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching stats:', error)
+            }
+            return {
+              ...group,
+              total_numbers: 0,
+              active_numbers: 0,
+              total_clicks: 0,
+            }
+          })
         )
-      )
+        setGroups(groupsWithStats)
+      }
+      
       setIsEditModalOpen(false)
       setSelectedGroup(null)
+    } catch (error) {
+      console.error('Error updating group:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao atualizar grupo')
     } finally {
       setIsLoading(false)
     }
@@ -133,7 +219,50 @@ export default function GruposPage() {
   const handleDeleteGroup = async (group: Group) => {
     if (!confirm(`Tem certeza que deseja excluir o grupo "${group.name}"?`)) return
     
-    setGroups((prev) => prev.filter((g) => g.id !== group.id))
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/groups/${group.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao excluir grupo')
+      }
+
+      // Recarregar grupos
+      const groupsResponse = await fetch('/api/groups')
+      if (groupsResponse.ok) {
+        const groupsData = await groupsResponse.json()
+        const statsResponse = await fetch('/api/group-stats')
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json()
+          const groupsWithStats = groupsData.map((g: Group) => {
+            const groupStats = stats.find((s: any) => s.id === g.id)
+            return {
+              ...g,
+              total_numbers: groupStats?.total_numbers || 0,
+              active_numbers: groupStats?.active_numbers || 0,
+              total_clicks: groupStats?.total_clicks || 0,
+            }
+          })
+          setGroups(groupsWithStats)
+        } else {
+          const groupsWithStats = groupsData.map((g: Group) => ({
+            ...g,
+            total_numbers: 0,
+            active_numbers: 0,
+            total_clicks: 0,
+          }))
+          setGroups(groupsWithStats)
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting group:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao excluir grupo')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleAddNumber = async (data: Partial<WhatsAppNumber>) => {
@@ -222,7 +351,14 @@ export default function GruposPage() {
           />
 
           {/* Groups Grid/List */}
-          {filteredGroups.length === 0 ? (
+          {isInitialLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="w-8 h-8 border-4 border-lime-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-text-secondary">Carregando grupos...</p>
+              </div>
+            </div>
+          ) : filteredGroups.length === 0 ? (
             <EmptyState
               icon={<LayoutGrid className="w-8 h-8" />}
               title="Nenhum grupo encontrado"
