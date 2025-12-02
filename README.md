@@ -22,6 +22,38 @@ Sistema de distribuição inteligente de leads para WhatsApp com rotação de n�
 - **Autenticação**: JWT + Cookie (`auth-token`)
 - **Deploy**: Vercel
 
+## 🚀 Deploy no GitHub
+
+### Opção 1: Usando o Script Automático
+
+```bash
+# Executar o script de deploy
+./deploy-to-github.sh
+```
+
+### Opção 2: Manual
+
+1. **Criar repositório no GitHub:**
+   - Acesse: https://github.com/new
+   - Nome: `linkflow-saas`
+   - Descrição: `Sistema completo de gestão de WhatsApp com rotação de números, analytics e painel admin`
+   - Escolha Public ou Private
+   - **NÃO** marque "Initialize with README"
+   - Clique em "Create repository"
+
+2. **Conectar e fazer push:**
+```bash
+# Adicionar remote (substitua SEU_USUARIO pelo seu username)
+git remote add origin https://github.com/SEU_USUARIO/linkflow-saas.git
+
+# Ou se preferir SSH:
+# git remote add origin git@github.com:SEU_USUARIO/linkflow-saas.git
+
+# Fazer push
+git branch -M main
+git push -u origin main
+```
+
 ## 📦 Instalação
 
 ### 1. Clone o repositório
