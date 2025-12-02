@@ -154,7 +154,7 @@ export default function LoginPage() {
           {/* Footer */}
           <p className="text-center text-sm text-text-secondary mt-6">
             Não tem uma conta?{' '}
-            <a href="#" className="text-lime-400 hover:text-lime-300 transition-colors">
+            <a href="/checkout" className="text-lime-400 hover:text-lime-300 transition-colors">
               Criar conta
             </a>
           </p>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { signJWT, setAuthCookie } from '@/lib/auth'
+import bcrypt from 'bcryptjs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,10 +38,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar senha (em produção, usar bcrypt.compare)
-    // Por simplicidade, estamos comparando direto (NÃO fazer isso em produção!)
-    // Em produção: const isValid = await bcrypt.compare(password, user.password_hash)
-    const isValid = user.password_hash === password // APENAS PARA DEMO
+    // Verificar senha com bcrypt
+    if (!user.password_hash) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+
+    // Suporta tanto hash bcrypt quanto senha em texto (para migração)
+    let isValid = false
+    if (user.password_hash.startsWith('$2')) {
+      // Hash bcrypt
+      isValid = await bcrypt.compare(password, user.password_hash)
+    } else {
+      // Fallback para senha em texto (migração)
+      isValid = user.password_hash === password
+    }
 
     if (!isValid) {
       return NextResponse.json(
