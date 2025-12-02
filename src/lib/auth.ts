@@ -57,12 +57,17 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     return null
   }
   
+  // Validar que o role é válido
+  const role = payload.role === 'owner' || payload.role === 'member' 
+    ? payload.role 
+    : 'member'
+  
   return {
     id: payload.sub,
     email: payload.email,
     name: payload.name,
     company_id: payload.company_id,
-    role: payload.role,
+    role: role as 'owner' | 'member',
   }
 }
 
