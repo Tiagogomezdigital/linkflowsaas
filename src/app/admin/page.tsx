@@ -44,11 +44,11 @@ const mockStats = {
 }
 
 const mockRecentCompanies = [
-  { id: '1', name: 'TechStart Solutions', plan: 'professional', createdAt: '2025-12-01', users: 5, clicks: 1234 },
-  { id: '2', name: 'Marketing Pro', plan: 'starter', createdAt: '2025-11-30', users: 2, clicks: 567 },
-  { id: '3', name: 'VendaMais LTDA', plan: 'enterprise', createdAt: '2025-11-29', users: 12, clicks: 3456 },
-  { id: '4', name: 'Consultoria ABC', plan: 'trial', createdAt: '2025-11-28', users: 1, clicks: 89 },
-  { id: '5', name: 'Digital Growth', plan: 'professional', createdAt: '2025-11-27', users: 4, clicks: 2100 },
+  { id: '1', name: 'TechStart Solutions', plan: 'annual', createdAt: '2025-12-01', users: 5, clicks: 1234 },
+  { id: '2', name: 'Marketing Pro', plan: 'monthly', createdAt: '2025-11-30', users: 2, clicks: 567 },
+  { id: '3', name: 'VendaMais LTDA', plan: 'annual', createdAt: '2025-11-29', users: 12, clicks: 3456 },
+  { id: '4', name: 'Consultoria ABC', plan: null, createdAt: '2025-11-28', users: 1, clicks: 89 },
+  { id: '5', name: 'Digital Growth', plan: 'monthly', createdAt: '2025-11-27', users: 4, clicks: 2100 },
 ]
 
 const mockActivityLog = [
@@ -115,14 +115,17 @@ export default function AdminDashboardPage() {
   const [recentCompanies] = useState(mockRecentCompanies)
   const [activityLog] = useState(mockActivityLog)
 
-  const getPlanBadge = (plan: string) => {
+  const getPlanBadge = (plan: string | null) => {
+    if (!plan) return <Badge variant="default">Free</Badge>
     const variants: Record<string, 'default' | 'success' | 'warning' | 'info'> = {
-      trial: 'default',
-      starter: 'info',
-      professional: 'success',
-      enterprise: 'warning',
+      monthly: 'info',
+      annual: 'success',
     }
-    return <Badge variant={variants[plan] || 'default'}>{plan}</Badge>
+    const labels: Record<string, string> = {
+      monthly: 'Mensal',
+      annual: 'Anual',
+    }
+    return <Badge variant={variants[plan] || 'default'}>{labels[plan] || plan}</Badge>
   }
 
   const getActivityIcon = (type: string) => {
@@ -202,41 +205,32 @@ export default function AdminDashboardPage() {
         <div className="mt-4 h-3 bg-background rounded-full overflow-hidden flex">
           <div 
             className="bg-gray-500 transition-all duration-500"
-            style={{ width: `${(stats.planos.trial / stats.totalEmpresas) * 100}%` }}
-            title="Trial"
+            style={{ width: `${(stats.planos.free / stats.totalEmpresas) * 100}%` }}
+            title="Free/Trial"
           />
           <div 
             className="bg-blue-500 transition-all duration-500"
-            style={{ width: `${(stats.planos.starter / stats.totalEmpresas) * 100}%` }}
-            title="Starter"
+            style={{ width: `${(stats.planos.monthly / stats.totalEmpresas) * 100}%` }}
+            title="Monthly"
           />
           <div 
             className="bg-lime-500 transition-all duration-500"
-            style={{ width: `${(stats.planos.professional / stats.totalEmpresas) * 100}%` }}
-            title="Professional"
-          />
-          <div 
-            className="bg-yellow-500 transition-all duration-500"
-            style={{ width: `${(stats.planos.enterprise / stats.totalEmpresas) * 100}%` }}
-            title="Enterprise"
+            style={{ width: `${(stats.planos.annual / stats.totalEmpresas) * 100}%` }}
+            title="Annual"
           />
         </div>
         <div className="flex justify-center gap-6 mt-3">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-gray-500 rounded-full" />
-            <span className="text-xs text-text-muted">Trial</span>
+            <span className="text-xs text-text-muted">Free/Trial</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-blue-500 rounded-full" />
-            <span className="text-xs text-text-muted">Starter</span>
+            <span className="text-xs text-text-muted">Monthly</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-lime-500 rounded-full" />
-            <span className="text-xs text-text-muted">Professional</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full" />
-            <span className="text-xs text-text-muted">Enterprise</span>
+            <span className="text-xs text-text-muted">Annual</span>
           </div>
         </div>
       </Card>
