@@ -74,8 +74,8 @@ npm install
 Crie um arquivo `.env.local` na raiz do projeto:
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+# Supabase - Projeto linkflowsaas
+NEXT_PUBLIC_SUPABASE_URL=https://okneoxrybknrrawiaopn.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
 SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
 

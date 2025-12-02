@@ -1,0 +1,18 @@
+# LinkFlow SaaS - Variáveis de Ambiente
+# Copie este conteúdo para .env.local
+
+# Supabase - Projeto linkflowsaas
+NEXT_PUBLIC_SUPABASE_URL=https://okneoxrybknrrawiaopn.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=cole_sua_anon_key_aqui
+SUPABASE_SERVICE_ROLE_KEY=cole_sua_service_role_key_aqui
+
+# JWT Secret (mínimo 32 caracteres)
+# Gere uma chave aleatória segura
+JWT_SECRET=cole_sua_chave_secreta_min_32_caracteres_aqui
+
+# App URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Para obter as chaves do Supabase:
+# https://supabase.com/dashboard/project/okneoxrybknrrawiaopn/settings/api
+
