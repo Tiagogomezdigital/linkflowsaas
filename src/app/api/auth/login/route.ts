@@ -18,29 +18,51 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServiceRoleClient()
-
-    // Buscar usuário pelo email usando RPC no schema public (acessível via PostgREST)
     const emailNormalized = email.toLowerCase().trim()
     
     console.log('Attempting to login with email:', emailNormalized)
     
-    // Usar função RPC no schema public que acessa redirect.users
-    const { data: rpcData, error: rpcError } = await supabase
-      .rpc('get_user_by_email', { user_email: emailNormalized })
-    
+    // Usar chamada HTTP direta à API REST do Supabase para contornar limitação do PostgREST
     let user: any = null
     let error: any = null
     
-    if (rpcError) {
-      console.error('RPC error:', rpcError)
-      error = rpcError
-    } else if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
-      user = rpcData[0]
-      console.log('User found via RPC:', user.email)
-    } else {
-      console.log('User not found via RPC')
-      error = { message: 'User not found' }
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      
+      if (!supabaseUrl || !serviceRoleKey) {
+        throw new Error('Supabase configuration missing')
+      }
+      
+      // Chamada HTTP direta à função RPC
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_user_by_email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': serviceRoleKey,
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify({ user_email: emailNormalized }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }))
+        console.error('RPC HTTP error:', response.status, errorData)
+        error = { message: errorData.message || 'Failed to fetch user', code: response.status }
+      } else {
+        const data = await response.json()
+        if (Array.isArray(data) && data.length > 0) {
+          user = data[0]
+          console.log('User found via direct RPC call:', user.email)
+        } else {
+          console.log('User not found via RPC')
+          error = { message: 'User not found' }
+        }
+      }
+    } catch (fetchError: any) {
+      console.error('Fetch error:', fetchError)
+      error = { message: fetchError.message || 'Failed to connect to database' }
     }
 
     if (error) {
