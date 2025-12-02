@@ -16,19 +16,9 @@ export async function GET() {
       )
     }
 
-    // Verificar se é admin
-    let isAdmin = false
-    try {
-      const supabase = createServiceRoleClient()
-      const { data: adminCheck } = await supabase.rpc('is_admin_user', {
-        user_email: user.email,
-        user_company_id: user.company_id,
-      })
-      isAdmin = adminCheck === true || user.email === 'admin@linkflow.com'
-    } catch (error) {
-      // Fallback: verificar apenas pelo email
-      isAdmin = user.email === 'admin@linkflow.com'
-    }
+    // Verificar se é admin (apenas admin@linkflow.com)
+    // Em produção, pode adicionar verificação por empresa slug 'admin' também
+    const isAdmin = user.email === 'admin@linkflow.com'
 
     return NextResponse.json({
       user: {
