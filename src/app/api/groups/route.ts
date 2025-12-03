@@ -170,17 +170,26 @@ export async function POST(request: NextRequest) {
 
     console.log('RPC result:', groupResult)
 
-    // A função RPC retorna JSON
+    // A função RPC retorna JSON, mas pode vir envolvido em um objeto com a chave da função
     let groupData = null
     if (groupResult) {
-      if (Array.isArray(groupResult)) {
+      // Se retornar como objeto com chave 'insert_group'
+      if (groupResult.insert_group) {
+        groupData = groupResult.insert_group
+      } 
+      // Se retornar como array
+      else if (Array.isArray(groupResult)) {
         groupData = groupResult[0]
-      } else if (typeof groupResult === 'object') {
+      } 
+      // Se retornar como objeto direto
+      else if (typeof groupResult === 'object' && groupResult.id) {
         groupData = groupResult
-      } else if (typeof groupResult === 'string') {
-        // Se retornar string JSON, fazer parse
+      } 
+      // Se retornar como string JSON
+      else if (typeof groupResult === 'string') {
         try {
-          groupData = JSON.parse(groupResult)
+          const parsed = JSON.parse(groupResult)
+          groupData = parsed.insert_group || parsed
         } catch (e) {
           console.error('Error parsing groupResult:', e)
         }
@@ -191,7 +200,8 @@ export async function POST(request: NextRequest) {
       console.error('Invalid group data returned:', groupResult)
       return NextResponse.json({ 
         error: 'Failed to create group',
-        details: 'Invalid response from server'
+        details: 'Invalid response from server',
+        debug: { groupResult, groupData }
       }, { status: 500 })
     }
 
