@@ -131,7 +131,13 @@ export default function PlanosPage() {
         title="Planos"
         description="Configure e gerencie os planos da plataforma"
         actions={
-          <Button variant="primary">
+          <Button 
+            variant="primary"
+            onClick={() => {
+              // TODO: Implementar modal de criação de plano
+              alert('Funcionalidade de criar plano será implementada em breve')
+            }}
+          >
             + Novo Plano
           </Button>
         }

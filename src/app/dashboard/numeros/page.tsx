@@ -253,7 +253,13 @@ export default function NumerosPage() {
         breadcrumbs={[{ label: 'Números' }]}
         actions={
           <div className="flex items-center gap-3">
-            <Button variant="secondary">
+            <Button 
+              variant="secondary"
+              onClick={() => {
+                // Redirecionar para página de grupos onde pode gerenciar números por grupo
+                window.location.href = '/dashboard/grupos'
+              }}
+            >
               Gerenciar por Grupo
             </Button>
             <Button

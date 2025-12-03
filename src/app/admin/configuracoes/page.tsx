@@ -144,7 +144,14 @@ export default function ConfiguracoesPage() {
           </div>
 
           <div className="mt-4">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={async () => {
+                // TODO: Implementar teste de conexão SMTP
+                alert('Funcionalidade de testar conexão SMTP será implementada em breve')
+              }}
+            >
               Testar Conexão
             </Button>
           </div>

@@ -125,7 +125,13 @@ export default function EmpresasPage() {
         title="Empresas"
         description="Gerencie todas as empresas cadastradas na plataforma"
         actions={
-          <Button variant="primary">
+          <Button 
+            variant="primary"
+            onClick={() => {
+              // TODO: Implementar modal de criação de empresa
+              alert('Funcionalidade de criar empresa será implementada em breve')
+            }}
+          >
             + Nova Empresa
           </Button>
         }
@@ -260,12 +266,22 @@ export default function EmpresasPage() {
                           <Eye className="w-4 h-4 text-text-muted" />
                         </button>
                         <button
+                          onClick={() => {
+                            setSelectedEmpresa(empresa)
+                            setIsDetailModalOpen(true)
+                          }}
                           className="p-2 rounded-lg hover:bg-surface-hover transition-colors"
                           title="Editar"
                         >
                           <Edit2 className="w-4 h-4 text-text-muted" />
                         </button>
                         <button
+                          onClick={async () => {
+                            if (confirm(`Tem certeza que deseja excluir a empresa ${empresa.name}? Esta ação não pode ser desfeita.`)) {
+                              // TODO: Implementar API para excluir empresa
+                              alert('Funcionalidade de excluir empresa será implementada em breve')
+                            }
+                          }}
                           className="p-2 rounded-lg hover:bg-red-500/10 transition-colors"
                           title="Excluir"
                         >
@@ -343,13 +359,35 @@ export default function EmpresasPage() {
 
             {/* Ações */}
             <div className="flex gap-3 pt-4 border-t border-surface-border">
-              <Button variant="secondary" leftIcon={<Mail className="w-4 h-4" />}>
+              <Button 
+                variant="secondary" 
+                leftIcon={<Mail className="w-4 h-4" />}
+                onClick={() => {
+                  // Buscar email do owner da empresa
+                  // Por enquanto, apenas mostra mensagem
+                  alert('Funcionalidade de enviar email será implementada em breve')
+                }}
+              >
                 Enviar Email
               </Button>
-              <Button variant="secondary" leftIcon={<ExternalLink className="w-4 h-4" />}>
+              <Button 
+                variant="secondary" 
+                leftIcon={<ExternalLink className="w-4 h-4" />}
+                onClick={() => {
+                  // TODO: Implementar funcionalidade de acessar como admin
+                  alert('Funcionalidade de acessar como admin será implementada em breve')
+                }}
+              >
                 Acessar como Admin
               </Button>
-              <Button variant="outline" leftIcon={<Edit2 className="w-4 h-4" />}>
+              <Button 
+                variant="outline" 
+                leftIcon={<Edit2 className="w-4 h-4" />}
+                onClick={() => {
+                  // TODO: Implementar modal de edição de empresa
+                  alert('Funcionalidade de editar empresa será implementada em breve')
+                }}
+              >
                 Editar Empresa
               </Button>
             </div>

@@ -142,7 +142,13 @@ export default function UsuariosPage() {
         title="Usuários"
         description="Gerencie todos os usuários do sistema"
         actions={
-          <Button variant="primary">
+          <Button 
+            variant="primary"
+            onClick={() => {
+              // TODO: Implementar modal de criação de usuário
+              alert('Funcionalidade de criar usuário será implementada em breve')
+            }}
+          >
             + Novo Usuário
           </Button>
         }
@@ -286,12 +292,22 @@ export default function UsuariosPage() {
                           <Eye className="w-4 h-4 text-text-muted" />
                         </button>
                         <button
+                          onClick={() => {
+                            setSelectedUsuario(usuario)
+                            setIsDetailModalOpen(true)
+                          }}
                           className="p-2 rounded-lg hover:bg-surface-hover transition-colors"
                           title="Editar"
                         >
                           <Edit2 className="w-4 h-4 text-text-muted" />
                         </button>
                         <button
+                          onClick={async () => {
+                            if (confirm(`Tem certeza que deseja excluir o usuário ${usuario.name}?`)) {
+                              // TODO: Implementar API para excluir usuário
+                              alert('Funcionalidade de excluir usuário será implementada em breve')
+                            }
+                          }}
                           className="p-2 rounded-lg hover:bg-red-500/10 transition-colors"
                           title="Excluir"
                         >
@@ -371,18 +387,49 @@ export default function UsuariosPage() {
 
             {/* Ações */}
             <div className="flex gap-3 pt-4 border-t border-surface-border">
-              <Button variant="secondary" leftIcon={<Mail className="w-4 h-4" />}>
+              <Button 
+                variant="secondary" 
+                leftIcon={<Mail className="w-4 h-4" />}
+                onClick={() => {
+                  window.location.href = `mailto:${selectedUsuario.email}`
+                }}
+              >
                 Enviar Email
               </Button>
-              <Button variant="outline" leftIcon={<Edit2 className="w-4 h-4" />}>
+              <Button 
+                variant="outline" 
+                leftIcon={<Edit2 className="w-4 h-4" />}
+                onClick={() => {
+                  // TODO: Implementar modal de edição de usuário
+                  alert('Funcionalidade de editar usuário será implementada em breve')
+                }}
+              >
                 Editar
               </Button>
               {selectedUsuario.is_active ? (
-                <Button variant="danger" leftIcon={<UserX className="w-4 h-4" />}>
+                <Button 
+                  variant="danger" 
+                  leftIcon={<UserX className="w-4 h-4" />}
+                  onClick={async () => {
+                    if (confirm(`Tem certeza que deseja desativar o usuário ${selectedUsuario.name}?`)) {
+                      // TODO: Implementar API para desativar usuário
+                      alert('Funcionalidade de desativar usuário será implementada em breve')
+                    }
+                  }}
+                >
                   Desativar
                 </Button>
               ) : (
-                <Button variant="primary" leftIcon={<UserCheck className="w-4 h-4" />}>
+                <Button 
+                  variant="primary" 
+                  leftIcon={<UserCheck className="w-4 h-4" />}
+                  onClick={async () => {
+                    if (confirm(`Tem certeza que deseja ativar o usuário ${selectedUsuario.name}?`)) {
+                      // TODO: Implementar API para ativar usuário
+                      alert('Funcionalidade de ativar usuário será implementada em breve')
+                    }
+                  }}
+                >
                   Ativar
                 </Button>
               )}
