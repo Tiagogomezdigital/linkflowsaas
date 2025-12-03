@@ -155,11 +155,14 @@ export async function DELETE(
     }
 
     // Decrementar contador de grupos no tenant_limits
-    await supabase.rpc('decrement_group_count', {
-      p_company_id: user.company_id
-    }).catch(() => {
-      // Ignorar erro se função não existir ainda
-    })
+    try {
+      await supabase.rpc('decrement_group_count', {
+        p_company_id: user.company_id
+      })
+    } catch (error) {
+      // Ignorar erro se função não existir ainda ou tenant_limits não existir
+      console.log('Could not decrement group count:', error)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -182,12 +182,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualizar contador de grupos no tenant_limits (se existir)
-    await supabase.rpc('increment_group_count', {
-      p_company_id: user.company_id
-    }).catch(() => {
+    try {
+      await supabase.rpc('increment_group_count', {
+        p_company_id: user.company_id
+      })
+    } catch (error) {
       // Ignorar erro se tenant_limits não existir ainda
       // Será criado na próxima verificação de limite
-    })
+      console.log('Could not increment group count:', error)
+    }
 
     return NextResponse.json(createdGroup, { status: 201 })
   } catch (error) {
