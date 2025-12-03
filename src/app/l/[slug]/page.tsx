@@ -13,13 +13,15 @@ export const runtime = 'nodejs'
 // Função helper para criar cliente Supabase com tratamento de erro
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  // Usar ANON_KEY para operações públicas (redirect é público)
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   
   console.log('[REDIRECT] Supabase URL exists:', !!url)
-  console.log('[REDIRECT] Supabase Key exists:', !!key)
+  console.log('[REDIRECT] Supabase ANON Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  console.log('[REDIRECT] Supabase SERVICE Key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
   
   if (!url || !key) {
-    console.error('[REDIRECT] Missing Supabase credentials')
+    console.error('[REDIRECT] Missing Supabase credentials - URL:', !!url, 'KEY:', !!key)
     return null
   }
   
