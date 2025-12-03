@@ -21,12 +21,9 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceRoleClient()
 
     let query = supabase
-      .from('companies')
-      .select(`
-        *,
-        users (count),
-        groups (count)
-      `)
+      .schema('public')
+      .from('companies_view')
+      .select('*')
       .order('created_at', { ascending: false })
 
     if (plan) {
@@ -48,21 +45,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch companies' }, { status: 500 })
     }
 
-    // Buscar cliques para cada empresa
+    // Buscar estatísticas para cada empresa
     const companiesWithStats = await Promise.all(
       (companies || []).map(async (company: any) => {
         const { count: clicks } = await supabase
-          .from('clicks')
+          .schema('public')
+          .from('clicks_view')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', company.id)
+
+        const { count: users } = await supabase
+          .schema('public')
+          .from('users_view')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', company.id)
+
+        const { count: groups } = await supabase
+          .schema('public')
+          .from('groups_view')
           .select('*', { count: 'exact', head: true })
           .eq('company_id', company.id)
 
         return {
           ...company,
-          users_count: company.users?.[0]?.count || 0,
-          groups_count: company.groups?.[0]?.count || 0,
+          users_count: users || 0,
+          groups_count: groups || 0,
           clicks_count: clicks || 0,
-          users: undefined,
-          groups: undefined,
         }
       })
     )
@@ -96,7 +104,8 @@ export async function POST(request: NextRequest) {
 
     // Verificar se slug já existe
     const { data: existingSlug } = await supabase
-      .from('companies')
+      .schema('public')
+      .from('companies_view')
       .select('id')
       .eq('slug', slug)
       .single()
@@ -108,16 +117,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Usar RPC para inserir
     const { data: company, error } = await supabase
-      .from('companies')
-      .insert({
-        name,
-        slug,
-        plan_type,
-        subscription_status,
+      .rpc('upsert_company', {
+        p_id: null,
+        p_name: name,
+        p_slug: slug,
+        p_plan_type: plan_type,
+        p_subscription_status: subscription_status,
       })
-      .select()
-      .single()
 
     if (error) {
       console.error('Error creating company:', error)

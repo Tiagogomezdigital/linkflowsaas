@@ -19,29 +19,34 @@ export async function GET() {
 
     // Total de empresas
     const { count: totalEmpresas } = await supabase
-      .from('companies')
+      .schema('public')
+      .from('companies_view')
       .select('*', { count: 'exact', head: true })
 
     // Empresas ativas (subscription_status = 'active')
     const { count: empresasAtivas } = await supabase
-      .from('companies')
+      .schema('public')
+      .from('companies_view')
       .select('*', { count: 'exact', head: true })
       .eq('subscription_status', 'active')
 
     // Total de usuários
     const { count: totalUsuarios } = await supabase
-      .from('users')
+      .schema('public')
+      .from('users_view')
       .select('*', { count: 'exact', head: true })
 
     // Usuários ativos
     const { count: usuariosAtivos } = await supabase
-      .from('users')
+      .schema('public')
+      .from('users_view')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true)
 
     // Total de cliques (todos os tempos)
     const { count: totalCliques } = await supabase
-      .from('clicks')
+      .schema('public')
+      .from('clicks_view')
       .select('*', { count: 'exact', head: true })
 
     // Cliques este mês
@@ -50,13 +55,15 @@ export async function GET() {
     startOfMonth.setHours(0, 0, 0, 0)
 
     const { count: cliquesMes } = await supabase
-      .from('clicks')
+      .schema('public')
+      .from('clicks_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth.toISOString())
 
     // Distribuição por plano
     const { data: planos } = await supabase
-      .from('companies')
+      .schema('public')
+      .from('companies_view')
       .select('plan_type')
 
     const distribuicaoPlanos = {
@@ -76,13 +83,15 @@ export async function GET() {
 
     // Novas empresas este mês
     const { count: novasEmpresasMes } = await supabase
-      .from('companies')
+      .schema('public')
+      .from('companies_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth.toISOString())
 
     // Novos usuários este mês
     const { count: novosUsuariosMes } = await supabase
-      .from('users')
+      .schema('public')
+      .from('users_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth.toISOString())
 

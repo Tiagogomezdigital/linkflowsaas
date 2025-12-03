@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceRoleClient()
 
     const { data: settings, error } = await supabase
-      .from('system_settings')
+      .schema('public')
+      .from('system_settings_view')
       .select('*')
 
     if (error) {
@@ -48,16 +49,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const supabase = createServiceRoleClient()
 
-    // Salvar cada configuração
+    // Salvar cada configuração usando RPC
     const updates = Object.entries(body).map(async ([key, value]) => {
       const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          key,
-          value,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'key'
+        .rpc('upsert_system_setting', {
+          p_key: key,
+          p_value: value,
         })
 
       if (error) {

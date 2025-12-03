@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceRoleClient()
 
     const { data: plans, error } = await supabase
-      .from('subscription_plans')
+      .schema('public')
+      .from('subscription_plans_view')
       .select('*')
       .order('sort_order', { ascending: true })
 
@@ -30,7 +31,8 @@ export async function GET(request: NextRequest) {
       (plans || []).map(async (plan: any) => {
         // Contar empresas com este plano
         const { count: empresas } = await supabase
-          .from('companies')
+          .schema('public')
+          .from('companies_view')
           .select('*', { count: 'exact', head: true })
           .eq('plan_type', plan.billing_cycle === 'monthly' ? 'monthly' : plan.billing_cycle === 'yearly' ? 'annual' : null)
 
@@ -94,20 +96,18 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient()
 
     const { data: plan, error } = await supabase
-      .from('subscription_plans')
-      .insert({
-        name,
-        description,
-        price_cents: parseInt(price_cents),
-        currency: 'BRL',
-        billing_cycle,
-        features,
-        limits,
-        is_active,
-        sort_order: parseInt(sort_order),
+      .rpc('upsert_subscription_plan', {
+        p_id: null,
+        p_name: name,
+        p_description: description,
+        p_price_cents: parseInt(price_cents),
+        p_currency: 'BRL',
+        p_billing_cycle: billing_cycle,
+        p_features: features,
+        p_limits: limits,
+        p_is_active: is_active,
+        p_sort_order: parseInt(sort_order),
       })
-      .select()
-      .single()
 
     if (error) {
       console.error('Error creating plan:', error)

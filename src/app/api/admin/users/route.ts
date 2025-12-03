@@ -22,15 +22,9 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceRoleClient()
 
     let query = supabase
-      .from('users')
-      .select(`
-        *,
-        companies (
-          id,
-          name,
-          slug
-        )
-      `)
+      .schema('public')
+      .from('users_view')
+      .select('*')
       .order('created_at', { ascending: false })
 
     if (role) {
@@ -56,13 +50,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
     }
 
-    // Remover password_hash do response
-    const sanitizedUsers = (users || []).map((u: any) => ({
-      ...u,
-      company: u.companies,
-      companies: undefined,
-      password_hash: undefined,
-    }))
+    // Buscar informações da empresa para cada usuário e remover password_hash
+    const sanitizedUsers = await Promise.all(
+      (users || []).map(async (u: any) => {
+        const { data: company } = await supabase
+          .schema('public')
+          .from('companies_view')
+          .select('id, name, slug')
+          .eq('id', u.company_id)
+          .single()
+
+        return {
+          ...u,
+          company: company || null,
+          password_hash: undefined,
+        }
+      })
+    )
 
     return NextResponse.json(sanitizedUsers)
   } catch (error) {
@@ -93,7 +97,8 @@ export async function POST(request: NextRequest) {
 
     // Verificar se email já existe
     const { data: existingEmail } = await supabase
-      .from('users')
+      .schema('public')
+      .from('users_view')
       .select('id')
       .eq('email', email.toLowerCase())
       .single()
@@ -107,7 +112,8 @@ export async function POST(request: NextRequest) {
 
     // Verificar se empresa existe
     const { data: company } = await supabase
-      .from('companies')
+      .schema('public')
+      .from('companies_view')
       .select('id')
       .eq('id', company_id)
       .single()
@@ -119,19 +125,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Em produção, usar bcrypt para hash da senha
+    // Hash da senha
+    const bcrypt = require('bcryptjs')
+    const password_hash = await bcrypt.hash(password, 10)
+
+    // Usar RPC para inserir usuário
     const { data: newUser, error } = await supabase
-      .from('users')
-      .insert({
-        email: email.toLowerCase(),
-        name,
-        company_id,
-        role,
-        password_hash: password, // Em produção: await bcrypt.hash(password, 10)
-        is_active: true,
+      .rpc('insert_user', {
+        p_email: email.toLowerCase(),
+        p_name: name,
+        p_company_id: company_id,
+        p_role: role,
+        p_password_hash: password_hash,
+        p_is_active: true,
       })
-      .select()
-      .single()
 
     if (error) {
       console.error('Error creating user:', error)
