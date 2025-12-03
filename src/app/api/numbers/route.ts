@@ -45,10 +45,27 @@ export async function GET(request: NextRequest) {
 
     const groupMap = new Map((groups || []).map((g: any) => [g.id, g]))
 
+    // Buscar contagem de cliques para cada número
+    const numberIds = (numbers || []).map((n: any) => n.id)
+    const { data: clicksData } = await supabase
+      .from('clicks_view')
+      .select('number_id')
+      .in('number_id', numberIds)
+
+    // Contar cliques por número
+    const clickCountMap = new Map<string, number>()
+    if (clicksData) {
+      clicksData.forEach((click: any) => {
+        const count = clickCountMap.get(click.number_id) || 0
+        clickCountMap.set(click.number_id, count + 1)
+      })
+    }
+
     // Formatar resposta
     const formattedNumbers = (numbers || []).map((num: any) => ({
       ...num,
       group: groupMap.get(num.group_id) || null,
+      click_count: clickCountMap.get(num.id) || 0,
     }))
 
     return NextResponse.json(formattedNumbers)
