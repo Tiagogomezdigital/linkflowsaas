@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   Plus, 
   Search, 
@@ -9,7 +9,8 @@ import {
   Edit2, 
   Trash2,
   ExternalLink,
-  MoreVertical
+  MoreVertical,
+  RefreshCw
 } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
@@ -39,6 +40,7 @@ export default function NumerosPage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -54,20 +56,28 @@ export default function NumerosPage() {
     is_active: true,
   })
 
-  // Buscar grupos e números da API
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsInitialLoading(true)
+  const fetchData = useCallback(
+    async (mode: 'initial' | 'refresh' | 'none' = 'refresh') => {
+      if (mode === 'initial') {
+        setIsInitialLoading(true)
+      } else if (mode === 'refresh') {
+        setIsRefreshing(true)
+      }
+
       try {
         // Buscar grupos
-        const groupsResponse = await fetch('/api/groups')
+        const groupsResponse = await fetch(`/api/groups?ts=${Date.now()}`, {
+          cache: 'no-store',
+        })
         if (groupsResponse.ok) {
           const groupsData = await groupsResponse.json()
           setGroups(groupsData)
         }
 
         // Buscar números
-        const numbersResponse = await fetch('/api/numbers')
+        const numbersResponse = await fetch(`/api/numbers?ts=${Date.now()}`, {
+          cache: 'no-store',
+        })
         if (numbersResponse.ok) {
           const numbersData = await numbersResponse.json()
           setNumbers(numbersData)
@@ -75,12 +85,26 @@ export default function NumerosPage() {
       } catch (error) {
         console.error('Error fetching data:', error)
       } finally {
-        setIsInitialLoading(false)
+        if (mode === 'initial') {
+          setIsInitialLoading(false)
+        } else if (mode === 'refresh') {
+          setIsRefreshing(false)
+        }
       }
-    }
+    },
+    []
+  )
 
-    fetchData()
-  }, [])
+  // Buscar grupos e números da API
+  useEffect(() => {
+    fetchData('initial')
+  }, [fetchData])
+
+  const handleRefresh = useCallback(() => {
+    if (!isRefreshing) {
+      fetchData('refresh')
+    }
+  }, [fetchData, isRefreshing])
 
   // Filter numbers
   useEffect(() => {
@@ -141,12 +165,7 @@ export default function NumerosPage() {
         throw new Error(error.error || 'Erro ao adicionar número')
       }
 
-      // Recarregar números
-      const numbersResponse = await fetch('/api/numbers')
-      if (numbersResponse.ok) {
-        const numbersData = await numbersResponse.json()
-        setNumbers(numbersData)
-      }
+      await fetchData('none')
       
       setIsAddModalOpen(false)
       resetForm()
@@ -176,12 +195,7 @@ export default function NumerosPage() {
         throw new Error(error.error || 'Erro ao atualizar número')
       }
 
-      // Recarregar números
-      const numbersResponse = await fetch('/api/numbers')
-      if (numbersResponse.ok) {
-        const numbersData = await numbersResponse.json()
-        setNumbers(numbersData)
-      }
+      await fetchData('none')
       
       setIsEditModalOpen(false)
       setSelectedNumber(null)
@@ -208,12 +222,7 @@ export default function NumerosPage() {
         throw new Error(error.error || 'Erro ao excluir número')
       }
 
-      // Recarregar números
-      const numbersResponse = await fetch('/api/numbers')
-      if (numbersResponse.ok) {
-        const numbersData = await numbersResponse.json()
-        setNumbers(numbersData)
-      }
+      await fetchData('none')
     } catch (error) {
       console.error('Error deleting number:', error)
       alert(error instanceof Error ? error.message : 'Erro ao excluir número')
@@ -253,6 +262,19 @@ export default function NumerosPage() {
         breadcrumbs={[{ label: 'Números' }]}
         actions={
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              leftIcon={
+                <RefreshCw
+                  className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                />
+              }
+            >
+              Atualizar
+            </Button>
             <Button 
               variant="secondary"
               onClick={() => {

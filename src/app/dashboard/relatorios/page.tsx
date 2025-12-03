@@ -102,7 +102,9 @@ export default function RelatoriosPage() {
     const fetchGroups = async () => {
       setIsInitialLoading(true)
       try {
-        const response = await fetch('/api/groups')
+        const response = await fetch(`/api/groups?ts=${Date.now()}`, {
+          cache: 'no-store',
+        })
         if (response.ok) {
           const data = await response.json()
           setGroups(data)
