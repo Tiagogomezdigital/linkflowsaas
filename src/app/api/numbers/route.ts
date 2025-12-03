@@ -91,24 +91,90 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar número usando RPC
+    console.log('Creating number with params:', {
+      company_id: user.company_id,
+      group_id,
+      phone: phone.replace(/\D/g, ''),
+      name,
+      custom_message,
+      is_active,
+    })
+
     const { data: numberResult, error } = await supabase
       .rpc('insert_whatsapp_number', {
         p_company_id: user.company_id,
         p_group_id: group_id,
         p_phone: phone.replace(/\D/g, ''),
-        p_name: name,
-        p_custom_message: custom_message,
+        p_name: name || null,
+        p_custom_message: custom_message || null,
         p_is_active: is_active,
       })
 
     if (error) {
       console.error('Error creating number:', error)
-      return NextResponse.json({ error: 'Failed to create number' }, { status: 500 })
+      console.error('Error details:', JSON.stringify(error, null, 2))
+      return NextResponse.json({ 
+        error: 'Failed to create number',
+        details: error.message 
+      }, { status: 500 })
     }
 
-    const numberData = Array.isArray(numberResult) ? numberResult[0] : numberResult
+    console.log('RPC result:', numberResult)
 
-    return NextResponse.json(numberData, { status: 201 })
+    // A função RPC retorna JSON, então pode ser um objeto ou string JSON
+    let numberData = null
+    if (numberResult) {
+      // Se retornar como string JSON
+      if (typeof numberResult === 'string') {
+        try {
+          numberData = JSON.parse(numberResult)
+        } catch (e) {
+          console.error('Error parsing numberResult:', e)
+          numberData = numberResult
+        }
+      }
+      // Se retornar como objeto
+      else if (typeof numberResult === 'object') {
+        numberData = Array.isArray(numberResult) ? numberResult[0] : numberResult
+      }
+    }
+
+    if (!numberData || !numberData.id) {
+      console.error('Invalid number data returned:', numberResult)
+      // Buscar número criado da view
+      const { data: createdNumber } = await supabase
+        .from('whatsapp_numbers_view')
+        .select('*')
+        .eq('company_id', user.company_id)
+        .eq('group_id', group_id)
+        .eq('phone', phone.replace(/\D/g, ''))
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (createdNumber) {
+        return NextResponse.json(createdNumber, { status: 201 })
+      }
+
+      return NextResponse.json({ 
+        error: 'Failed to create number',
+        details: 'Invalid response from server'
+      }, { status: 500 })
+    }
+
+    // Buscar número criado da view para garantir formato correto
+    const { data: createdNumber, error: fetchError } = await supabase
+      .from('whatsapp_numbers_view')
+      .select('*')
+      .eq('id', numberData.id)
+      .single()
+
+    if (fetchError || !createdNumber) {
+      console.error('Error fetching created number:', fetchError)
+      return NextResponse.json(numberData, { status: 201 })
+    }
+
+    return NextResponse.json(createdNumber, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/numbers:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
