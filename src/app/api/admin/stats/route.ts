@@ -40,19 +40,24 @@ export async function GET() {
       .eq('is_active', true)
 
     // Total de cliques (todos os tempos)
-    const { count: totalCliques } = await supabase
+    // Usar data direta em vez de count para garantir precisão
+    const { data: allClicks } = await supabase
       .from('clicks_view')
-      .select('*', { count: 'exact', head: true })
+      .select('id')
+    
+    const totalCliques = allClicks?.length || 0
 
     // Cliques este mês
     const startOfMonth = new Date()
     startOfMonth.setDate(1)
     startOfMonth.setHours(0, 0, 0, 0)
 
-    const { count: cliquesMes } = await supabase
+    const { data: clicksThisMonth } = await supabase
       .from('clicks_view')
-      .select('*', { count: 'exact', head: true })
+      .select('id')
       .gte('created_at', startOfMonth.toISOString())
+    
+    const cliquesMes = clicksThisMonth?.length || 0
 
     // Distribuição por plano (excluindo empresas admin)
     const { data: planos } = await supabase
