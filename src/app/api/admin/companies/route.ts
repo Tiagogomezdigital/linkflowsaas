@@ -99,6 +99,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const supabase = createPublicSchemaClient()
+
     // Verificar se slug já existe
     const { data: existingSlug } = await supabase
       .from('companies_view')

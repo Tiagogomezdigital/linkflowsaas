@@ -92,6 +92,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const supabase = createPublicSchemaClient()
+
     const { data: planResult, error } = await supabase
       .rpc('upsert_subscription_plan', {
         p_id: null,

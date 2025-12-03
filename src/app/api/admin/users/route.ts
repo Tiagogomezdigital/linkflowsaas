@@ -92,6 +92,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const supabase = createPublicSchemaClient()
+
     // Verificar se email já existe
     const { data: existingEmail } = await supabase
       .from('users_view')
