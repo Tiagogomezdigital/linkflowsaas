@@ -38,7 +38,7 @@ export default function GroupCard({
 }: GroupCardProps) {
   const [copied, setCopied] = useState(false)
   
-  const publicLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://linkflowsaas.vercel.app'}/l/${group.slug}`
+  const publicLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://linkflowsaas-alpha.vercel.app'}/l/${group.slug}`
 
   const handleCopy = async () => {
     await copyToClipboard(publicLink)

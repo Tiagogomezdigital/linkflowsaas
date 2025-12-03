@@ -65,6 +65,38 @@ export default function RelatoriosPage() {
 
   const todayDate = new Date().toLocaleDateString('pt-BR')
 
+  const handleGenerateReportForGroup = async (groupId: string, period: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/stats/filtered', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          period: period,
+          groupIds: [groupId],
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao gerar relatório')
+      }
+
+      const data = await response.json()
+      
+      setDailyClicks(data.daily_clicks || [])
+      setGroupRanking(data.group_ranking || [])
+      setDeviceDistribution(data.device_distribution || [])
+      setTotalClicks(data.total_clicks || 0)
+      setReportGenerated(true)
+    } catch (error) {
+      console.error('Error generating report:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao gerar relatório')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Buscar grupos ao carregar a página
   useEffect(() => {
     const fetchGroups = async () => {
@@ -74,8 +106,22 @@ export default function RelatoriosPage() {
         if (response.ok) {
           const data = await response.json()
           setGroups(data)
-          // Selecionar todos os grupos por padrão
-          setSelectedGroups(data.map((g: Group) => g.id))
+          
+          // Verificar se há um grupo específico na URL
+          const urlParams = new URLSearchParams(window.location.search)
+          const groupId = urlParams.get('group')
+          
+          if (groupId) {
+            // Selecionar apenas o grupo da URL
+            setSelectedGroups([groupId])
+            // Gerar relatório automaticamente após um pequeno delay
+            setTimeout(() => {
+              handleGenerateReportForGroup(groupId, selectedPeriod)
+            }, 500)
+          } else {
+            // Selecionar todos os grupos por padrão
+            setSelectedGroups(data.map((g: Group) => g.id))
+          }
         }
       } catch (error) {
         console.error('Error fetching groups:', error)
@@ -85,6 +131,7 @@ export default function RelatoriosPage() {
     }
 
     fetchGroups()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSelectAll = () => {

@@ -130,22 +130,36 @@ export async function GET(
     const selectedNumber = numbers[0]
     console.log('[REDIRECT API] Selected number:', selectedNumber.phone)
 
-    // Atualizar last_used_at e registrar clique (fire and forget)
+    // Atualizar last_used_at e registrar clique (fire and forget, mas aguardamos para garantir execução)
     const userAgent = request.headers.get('user-agent') || ''
     const deviceType = getDeviceType(userAgent)
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const referrer = request.headers.get('referer') || null
 
-    // Não bloquear o redirect
-    supabase.rpc('update_number_last_used', { p_id: selectedNumber.id })
-    supabase.rpc('insert_click', {
-      p_company_id: group.company_id,
-      p_group_id: group.id,
-      p_number_id: selectedNumber.id,
-      p_ip_address: ip,
-      p_user_agent: userAgent,
-      p_device_type: deviceType,
-      p_referrer: referrer,
+    // Executar RPCs em paralelo sem bloquear o redirect
+    Promise.allSettled([
+      supabase.rpc('update_number_last_used', { p_id: selectedNumber.id }),
+      supabase.rpc('insert_click', {
+        p_company_id: group.company_id,
+        p_group_id: group.id,
+        p_number_id: selectedNumber.id,
+        p_ip_address: ip,
+        p_user_agent: userAgent,
+        p_device_type: deviceType,
+        p_referrer: referrer,
+      })
+    ]).then((results) => {
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`[REDIRECT API] RPC ${index === 0 ? 'update_number_last_used' : 'insert_click'} failed:`, result.reason)
+        } else if (result.value.error) {
+          console.error(`[REDIRECT API] RPC ${index === 0 ? 'update_number_last_used' : 'insert_click'} error:`, result.value.error)
+        } else {
+          console.log(`[REDIRECT API] RPC ${index === 0 ? 'update_number_last_used' : 'insert_click'} success`)
+        }
+      })
+    }).catch((error) => {
+      console.error('[REDIRECT API] Error in Promise.allSettled:', error)
     })
 
     // Montar mensagem final

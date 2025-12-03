@@ -387,8 +387,8 @@ export default function GruposPage() {
                     setIsAddNumberModalOpen(true)
                   }}
                   onViewStats={(g) => {
-                    // TODO: Navegar para relatórios filtrado por grupo
-                    console.log('Ver stats do grupo:', g.id)
+                    // Navegar para relatórios com o grupo pré-selecionado
+                    window.location.href = `/dashboard/relatorios?group=${g.id}`
                   }}
                 />
               ))}
