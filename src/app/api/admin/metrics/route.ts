@@ -320,6 +320,57 @@ export async function GET(request: NextRequest) {
       ? Math.round(((cancelledLastMonth || 0) / totalActiveCompanies) * 100 * 10) / 10
       : 0
 
+    // Calcular crescimento percentual (comparar com período anterior)
+    const periodDays = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const previousStart = new Date(startDate)
+    previousStart.setDate(previousStart.getDate() - periodDays)
+
+    // Empresas no período anterior
+    const { count: empresasAnteriores } = await supabase
+      .schema('public')
+      .from('companies_view')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', previousStart.toISOString())
+      .lt('created_at', startDate.toISOString())
+
+    const empresasAtuais = empresasNovas.reduce((a, b) => a + b, 0)
+    const crescimentoEmpresas = empresasAnteriores && empresasAnteriores > 0
+      ? Math.round(((empresasAtuais - empresasAnteriores) / empresasAnteriores) * 100)
+      : empresasAtuais > 0 ? 100 : 0
+
+    // Usuários no período anterior
+    const { count: usuariosAnteriores } = await supabase
+      .schema('public')
+      .from('users_view')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', previousStart.toISOString())
+      .lt('created_at', startDate.toISOString())
+
+    const usuariosAtuais = usuariosNovos.reduce((a, b) => a + b, 0)
+    const crescimentoUsuarios = usuariosAnteriores && usuariosAnteriores > 0
+      ? Math.round(((usuariosAtuais - usuariosAnteriores) / usuariosAnteriores) * 100)
+      : usuariosAtuais > 0 ? 100 : 0
+
+    // Cliques no período anterior
+    const { count: cliquesAnteriores } = await supabase
+      .schema('public')
+      .from('clicks_view')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', previousStart.toISOString())
+      .lt('created_at', startDate.toISOString())
+
+    const cliquesAtuais = cliquesTotal.reduce((a, b) => a + b, 0)
+    const crescimentoCliques = cliquesAnteriores && cliquesAnteriores > 0
+      ? Math.round(((cliquesAtuais - cliquesAnteriores) / cliquesAnteriores) * 100)
+      : cliquesAtuais > 0 ? 100 : 0
+
+    // MRR no período anterior
+    const mrrAtual = mrr.length > 0 ? mrr[mrr.length - 1] : 0
+    const mrrAnterior = mrr.length > 1 ? mrr[0] : 0
+    const crescimentoMRR = mrrAnterior > 0
+      ? Math.round(((mrrAtual - mrrAnterior) / mrrAnterior) * 100)
+      : mrrAtual > 0 ? 100 : 0
+
     return NextResponse.json({
       empresasNovas,
       usuariosNovos,
@@ -333,6 +384,10 @@ export async function GET(request: NextRequest) {
       proToEnterprise,
       churnRate,
       churnEmpresas: cancelledLastMonth || 0,
+      crescimentoEmpresas,
+      crescimentoUsuarios,
+      crescimentoCliques,
+      crescimentoMRR,
     })
   } catch (error) {
     console.error('Error in GET /api/admin/metrics:', error)

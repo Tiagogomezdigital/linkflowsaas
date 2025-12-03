@@ -63,6 +63,10 @@ interface Metrics {
   proToEnterprise: number
   churnRate: number
   churnEmpresas: number
+  crescimentoEmpresas?: number
+  crescimentoUsuarios?: number
+  crescimentoCliques?: number
+  crescimentoMRR?: number
 }
 
 export default function MetricasPage() {
@@ -144,8 +148,17 @@ export default function MetricasPage() {
                 {metrics.empresasNovas.reduce((a, b) => a + b, 0)}
               </p>
               <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="w-4 h-4 text-lime-400" />
-                <span className="text-lime-400">+18%</span>
+                {metrics.crescimentoEmpresas !== undefined && metrics.crescimentoEmpresas >= 0 ? (
+                  <>
+                    <ArrowUpRight className="w-4 h-4 text-lime-400" />
+                    <span className="text-lime-400">+{metrics.crescimentoEmpresas}%</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownRight className="w-4 h-4 text-red-400" />
+                    <span className="text-red-400">{metrics.crescimentoEmpresas}%</span>
+                  </>
+                )}
                 <span className="text-text-muted text-sm ml-1">vs período anterior</span>
               </div>
             </div>
@@ -163,8 +176,17 @@ export default function MetricasPage() {
                 {metrics.usuariosNovos.reduce((a, b) => a + b, 0)}
               </p>
               <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="w-4 h-4 text-lime-400" />
-                <span className="text-lime-400">+24%</span>
+                {metrics.crescimentoUsuarios !== undefined && metrics.crescimentoUsuarios >= 0 ? (
+                  <>
+                    <ArrowUpRight className="w-4 h-4 text-lime-400" />
+                    <span className="text-lime-400">+{metrics.crescimentoUsuarios}%</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownRight className="w-4 h-4 text-red-400" />
+                    <span className="text-red-400">{metrics.crescimentoUsuarios}%</span>
+                  </>
+                )}
                 <span className="text-text-muted text-sm ml-1">vs período anterior</span>
               </div>
             </div>
@@ -182,8 +204,17 @@ export default function MetricasPage() {
                 {metrics.cliquesTotal.reduce((a, b) => a + b, 0).toLocaleString()}
               </p>
               <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="w-4 h-4 text-lime-400" />
-                <span className="text-lime-400">+32%</span>
+                {metrics.crescimentoCliques !== undefined && metrics.crescimentoCliques >= 0 ? (
+                  <>
+                    <ArrowUpRight className="w-4 h-4 text-lime-400" />
+                    <span className="text-lime-400">+{metrics.crescimentoCliques}%</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownRight className="w-4 h-4 text-red-400" />
+                    <span className="text-red-400">{metrics.crescimentoCliques}%</span>
+                  </>
+                )}
                 <span className="text-text-muted text-sm ml-1">vs período anterior</span>
               </div>
             </div>
@@ -201,8 +232,17 @@ export default function MetricasPage() {
                 R$ {metrics.mrr.length > 0 ? metrics.mrr[metrics.mrr.length - 1].toLocaleString() : '0'}
               </p>
               <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="w-4 h-4 text-lime-400" />
-                <span className="text-lime-400">+15%</span>
+                {metrics.crescimentoMRR !== undefined && metrics.crescimentoMRR >= 0 ? (
+                  <>
+                    <ArrowUpRight className="w-4 h-4 text-lime-400" />
+                    <span className="text-lime-400">+{metrics.crescimentoMRR}%</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownRight className="w-4 h-4 text-red-400" />
+                    <span className="text-red-400">{metrics.crescimentoMRR}%</span>
+                  </>
+                )}
                 <span className="text-text-muted text-sm ml-1">vs período anterior</span>
               </div>
             </div>
