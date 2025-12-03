@@ -9,13 +9,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const { slug } = params
+  console.log('[REDIRECT] Request for slug:', slug)
+  console.log('[REDIRECT] Request URL:', request.url)
+  
   try {
-    const { slug } = params
-    console.log('Redirect request for slug:', slug)
-    
     const supabase = createPublicSchemaClient()
+    console.log('[REDIRECT] Supabase client created')
 
     // Buscar grupo pelo slug usando view
+    console.log('[REDIRECT] Fetching group...')
     const { data: group, error: groupError } = await supabase
       .from('groups_view')
       .select('id, name, default_message, is_active, company_id')
@@ -23,24 +26,27 @@ export async function GET(
       .single()
 
     if (groupError) {
-      console.error('Error fetching group:', groupError)
-      const notFoundUrl = new URL('/not-found', request.url)
-      return NextResponse.redirect(notFoundUrl.toString())
+      console.error('[REDIRECT] Error fetching group:', JSON.stringify(groupError, null, 2))
+      const baseUrl = request.url.split('/api')[0]
+      return NextResponse.redirect(`${baseUrl}/not-found`)
     }
 
     if (!group) {
-      console.log('Group not found for slug:', slug)
-      const notFoundUrl = new URL('/not-found', request.url)
-      return NextResponse.redirect(notFoundUrl.toString())
+      console.log('[REDIRECT] Group not found for slug:', slug)
+      const baseUrl = request.url.split('/api')[0]
+      return NextResponse.redirect(`${baseUrl}/not-found`)
     }
 
+    console.log('[REDIRECT] Group found:', { id: group.id, name: group.name, is_active: group.is_active })
+
     if (!group.is_active) {
-      console.log('Group is inactive:', group.id)
-      const inactiveUrl = new URL('/group-inactive', request.url)
-      return NextResponse.redirect(inactiveUrl.toString())
+      console.log('[REDIRECT] Group is inactive:', group.id)
+      const baseUrl = request.url.split('/api')[0]
+      return NextResponse.redirect(`${baseUrl}/group-inactive`)
     }
 
     // Buscar próximo número ativo (round-robin) usando view
+    console.log('[REDIRECT] Fetching numbers for group:', group.id)
     const { data: numbers, error: numbersError } = await supabase
       .from('whatsapp_numbers_view')
       .select('id, phone, custom_message, last_used_at')
@@ -50,15 +56,17 @@ export async function GET(
       .limit(1)
 
     if (numbersError) {
-      console.error('Error fetching numbers:', numbersError)
-      const noNumbersUrl = new URL('/no-numbers', request.url)
-      return NextResponse.redirect(noNumbersUrl.toString())
+      console.error('[REDIRECT] Error fetching numbers:', JSON.stringify(numbersError, null, 2))
+      const baseUrl = request.url.split('/api')[0]
+      return NextResponse.redirect(`${baseUrl}/no-numbers`)
     }
 
+    console.log('[REDIRECT] Numbers found:', numbers?.length || 0)
+
     if (!numbers || numbers.length === 0) {
-      console.log('No active numbers found for group:', group.id)
-      const noNumbersUrl = new URL('/no-numbers', request.url)
-      return NextResponse.redirect(noNumbersUrl.toString())
+      console.log('[REDIRECT] No active numbers found for group:', group.id)
+      const baseUrl = request.url.split('/api')[0]
+      return NextResponse.redirect(`${baseUrl}/no-numbers`)
     }
 
     const selectedNumber = numbers[0]
@@ -105,17 +113,18 @@ export async function GET(
 
     // Gerar link do WhatsApp e redirecionar
     const whatsappUrl = generateWhatsAppLink(selectedNumber.phone, finalMessage)
-    console.log('Redirecting to WhatsApp:', whatsappUrl)
+    console.log('[REDIRECT] Redirecting to WhatsApp:', whatsappUrl)
 
     return NextResponse.redirect(whatsappUrl)
   } catch (error) {
-    console.error('Error in redirect:', error)
-    console.error('Error details:', {
+    console.error('[REDIRECT] Unexpected error:', error)
+    console.error('[REDIRECT] Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
     })
-    const errorUrl = new URL('/error', request.url)
-    return NextResponse.redirect(errorUrl.toString())
+    const baseUrl = request.url.split('/api')[0]
+    return NextResponse.redirect(`${baseUrl}/error`)
   }
 }
 
