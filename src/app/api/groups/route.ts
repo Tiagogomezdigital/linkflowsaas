@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -13,11 +13,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Buscar grupos com estatísticas usando view
     const { data: groups, error } = await supabase
-      .schema('public')
       .from('groups_view')
       .select('*')
       .eq('company_id', user.company_id)
@@ -32,7 +31,6 @@ export async function GET() {
     const groupsWithStats = await Promise.all(
       (groups || []).map(async (group: any) => {
         const { data: numbers } = await supabase
-          .schema('public')
           .from('whatsapp_numbers_view')
           .select('id, is_active')
           .eq('group_id', group.id)
@@ -70,11 +68,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Verificar limite do plano usando tenant_limits_view
     let { data: tenantLimits } = await supabase
-      .schema('public')
       .from('tenant_limits_view')
       .select('max_groups, current_groups, plan_id')
       .eq('company_id', user.company_id)
@@ -85,7 +82,6 @@ export async function POST(request: NextRequest) {
       try {
         // Buscar plano Free
         const { data: freePlan } = await supabase
-          .schema('public')
           .from('subscription_plans_view')
           .select('id, limits')
           .eq('billing_cycle', 'lifetime')
@@ -148,7 +144,6 @@ export async function POST(request: NextRequest) {
 
     // Verificar se slug já existe
     const { data: existingSlug } = await supabase
-      .schema('public')
       .from('groups_view')
       .select('id')
       .eq('slug', slug)
@@ -227,7 +222,6 @@ export async function POST(request: NextRequest) {
 
     // Buscar grupo criado da view para garantir formato correto
     const { data: createdGroup, error: fetchError } = await supabase
-      .schema('public')
       .from('groups_view')
       .select('*')
       .eq('id', groupData.id)

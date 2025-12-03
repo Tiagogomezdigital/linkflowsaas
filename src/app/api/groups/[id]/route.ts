@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -16,10 +16,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     const { data: group, error } = await supabase
-      .schema('public')
       .from('groups_view')
       .select('*')
       .eq('id', params.id)
@@ -51,11 +50,11 @@ export async function PUT(
     const body = await request.json()
     const { name, description, default_message, is_active } = body
 
+    const supabasePublic = createPublicSchemaClient()
     const supabase = createServiceRoleClient()
 
     // Verificar se grupo pertence à empresa
-    const { data: existingGroup } = await supabase
-      .schema('public')
+    const { data: existingGroup } = await supabasePublic
       .from('groups_view')
       .select('id')
       .eq('id', params.id)
@@ -92,8 +91,7 @@ export async function PUT(
     }
 
     // Buscar grupo atualizado da view
-    const { data: updatedGroup, error: fetchError } = await supabase
-      .schema('public')
+    const { data: updatedGroup, error: fetchError } = await supabasePublic
       .from('groups_view')
       .select('*')
       .eq('id', params.id)
@@ -121,11 +119,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const supabasePublic = createPublicSchemaClient()
     const supabase = createServiceRoleClient()
 
     // Verificar se grupo pertence à empresa
-    const { data: existingGroup } = await supabase
-      .schema('public')
+    const { data: existingGroup } = await supabasePublic
       .from('groups_view')
       .select('id, company_id')
       .eq('id', params.id)
