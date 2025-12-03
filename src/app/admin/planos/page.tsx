@@ -318,7 +318,7 @@ export default function PlanosPage() {
                 <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Recurso</th>
                 {planos.map((plano) => (
                   <th key={plano.id} className="text-center py-3 px-4">
-                    <span className={`font-semibold ${getTextColorClass(plano.color)}`}>
+                    <span className={`font-semibold ${getTextColorClass(plano.billing_cycle)}`}>
                       {plano.name}
                     </span>
                   </th>
