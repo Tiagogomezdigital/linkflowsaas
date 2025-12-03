@@ -23,6 +23,12 @@ export async function GET(
   console.log('[REDIRECT] Request for slug:', slug)
   console.log('[REDIRECT] Request URL:', request.url)
   
+  if (!slug) {
+    console.error('[REDIRECT] No slug provided')
+    const baseUrl = getBaseUrl(request)
+    return NextResponse.redirect(`${baseUrl}/not-found`)
+  }
+  
   const baseUrl = getBaseUrl(request)
   console.log('[REDIRECT] Base URL:', baseUrl)
   
@@ -34,6 +40,9 @@ export async function GET(
   
   try {
     const supabase = createPublicSchemaClient()
+    if (!supabase) {
+      throw new Error('Failed to create Supabase client')
+    }
     console.log('[REDIRECT] Supabase client created')
 
     // Buscar grupo pelo slug usando view
@@ -126,18 +135,43 @@ export async function GET(
       .join(' ')
 
     // Gerar link do WhatsApp e redirecionar
+    if (!selectedNumber.phone) {
+      console.error('[REDIRECT] Selected number has no phone:', selectedNumber)
+      return NextResponse.redirect(`${baseUrl}/no-numbers`)
+    }
+
     const whatsappUrl = generateWhatsAppLink(selectedNumber.phone, finalMessage)
     console.log('[REDIRECT] Redirecting to WhatsApp:', whatsappUrl)
 
-    return NextResponse.redirect(whatsappUrl)
+    if (!whatsappUrl || !whatsappUrl.startsWith('http')) {
+      console.error('[REDIRECT] Invalid WhatsApp URL:', whatsappUrl)
+      return NextResponse.redirect(`${baseUrl}/error`)
+    }
+
+    return NextResponse.redirect(whatsappUrl, 302)
   } catch (error) {
     console.error('[REDIRECT] Unexpected error:', error)
     console.error('[REDIRECT] Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : undefined,
+      slug,
+      baseUrl,
     })
-    return NextResponse.redirect(`${baseUrl}/error`)
+    
+    // Tentar redirecionar para página de erro, mas se falhar, retornar erro JSON
+    try {
+      return NextResponse.redirect(`${baseUrl}/error`, 302)
+    } catch (redirectError) {
+      console.error('[REDIRECT] Failed to redirect to error page:', redirectError)
+      return NextResponse.json(
+        { 
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        },
+        { status: 500 }
+      )
+    }
   }
 }
 
