@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         startDate.setDate(now.getDate() - 7)
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // 1. Novas empresas por dia (últimos 7 dias)
     const empresasNovas: number[] = []
@@ -140,7 +140,6 @@ export async function GET(request: NextRequest) {
 
     // 5. Distribuição por dispositivo
     const { data: clicks } = await supabase
-      .schema('public')
       .from('clicks_view')
       .select('device_type')
       .gte('created_at', startDate.toISOString())
@@ -175,7 +174,6 @@ export async function GET(request: NextRequest) {
 
     // 6. Top empresas por cliques
     const { data: topCompaniesData } = await supabase
-      .schema('public')
       .from('clicks_view')
       .select('company_id')
       .gte('created_at', startDate.toISOString())
@@ -244,7 +242,6 @@ export async function GET(request: NextRequest) {
 
     // 7. Distribuição geográfica (baseado em cliques)
     const { data: clicksGeo } = await supabase
-      .schema('public')
       .from('clicks_view')
       .select('country, company_id')
       .gte('created_at', startDate.toISOString())
@@ -287,7 +284,6 @@ export async function GET(request: NextRequest) {
 
     // 8. Funil de conversão (baseado em planos)
     const { data: allCompanies } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('plan_type, subscription_status')
 
@@ -304,14 +300,12 @@ export async function GET(request: NextRequest) {
     const lastMonth = new Date()
     lastMonth.setMonth(lastMonth.getMonth() - 1)
     const { count: cancelledLastMonth } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('*', { count: 'exact', head: true })
       .eq('subscription_status', 'canceled')
       .gte('updated_at', lastMonth.toISOString())
 
     const { count: totalActiveCompanies } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('*', { count: 'exact', head: true })
       .eq('subscription_status', 'active')
@@ -327,7 +321,6 @@ export async function GET(request: NextRequest) {
 
     // Empresas no período anterior
     const { count: empresasAnteriores } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', previousStart.toISOString())
@@ -340,7 +333,6 @@ export async function GET(request: NextRequest) {
 
     // Usuários no período anterior
     const { count: usuariosAnteriores } = await supabase
-      .schema('public')
       .from('users_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', previousStart.toISOString())
@@ -353,7 +345,6 @@ export async function GET(request: NextRequest) {
 
     // Cliques no período anterior
     const { count: cliquesAnteriores } = await supabase
-      .schema('public')
       .from('clicks_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', previousStart.toISOString())

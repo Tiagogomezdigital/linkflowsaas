@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -16,10 +16,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     const { data: plan, error } = await supabase
-      .schema('public')
       .from('subscription_plans_view')
       .select('*')
       .eq('id', params.id)
@@ -59,11 +58,10 @@ export async function PUT(
       sort_order
     } = body
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Verificar se plano existe
     const { data: existingPlan } = await supabase
-      .schema('public')
       .from('subscription_plans_view')
       .select('id')
       .eq('id', params.id)
@@ -116,7 +114,6 @@ export async function PUT(
 
     // Buscar plano atualizado da view para garantir formato correto e consistência
     const { data: updatedPlan, error: fetchError } = await supabase
-      .schema('public')
       .from('subscription_plans_view')
       .select('*')
       .eq('id', params.id)
@@ -146,11 +143,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Verificar se plano existe
     const { data: existingPlan } = await supabase
-      .schema('public')
       .from('subscription_plans_view')
       .select('id')
       .eq('id', params.id)

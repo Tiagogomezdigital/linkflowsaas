@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -13,10 +13,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     const { data: settings, error } = await supabase
-      .schema('public')
       .from('system_settings_view')
       .select('*')
 
@@ -47,7 +46,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Salvar cada configuração usando RPC
     const updates = Object.entries(body).map(async ([key, value]) => {

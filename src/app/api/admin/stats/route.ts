@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -15,37 +15,32 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Total de empresas
     const { count: totalEmpresas } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('*', { count: 'exact', head: true })
 
     // Empresas ativas (subscription_status = 'active')
     const { count: empresasAtivas } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('*', { count: 'exact', head: true })
       .eq('subscription_status', 'active')
 
     // Total de usuários
     const { count: totalUsuarios } = await supabase
-      .schema('public')
       .from('users_view')
       .select('*', { count: 'exact', head: true })
 
     // Usuários ativos
     const { count: usuariosAtivos } = await supabase
-      .schema('public')
       .from('users_view')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true)
 
     // Total de cliques (todos os tempos)
     const { count: totalCliques } = await supabase
-      .schema('public')
       .from('clicks_view')
       .select('*', { count: 'exact', head: true })
 
@@ -55,14 +50,12 @@ export async function GET() {
     startOfMonth.setHours(0, 0, 0, 0)
 
     const { count: cliquesMes } = await supabase
-      .schema('public')
       .from('clicks_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth.toISOString())
 
     // Distribuição por plano
     const { data: planos } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('plan_type')
 
@@ -83,14 +76,12 @@ export async function GET() {
 
     // Novas empresas este mês
     const { count: novasEmpresasMes } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth.toISOString())
 
     // Novos usuários este mês
     const { count: novosUsuariosMes } = await supabase
-      .schema('public')
       .from('users_view')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth.toISOString())

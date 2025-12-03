@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -16,11 +16,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     const { data: number, error } = await supabase
-      .from('whatsapp_numbers')
-      .select('*, groups(id, name, slug)')
+      .from('whatsapp_numbers_view')
+      .select('*')
       .eq('id', params.id)
       .eq('company_id', user.company_id)
       .single()
@@ -29,10 +29,16 @@ export async function GET(
       return NextResponse.json({ error: 'Number not found' }, { status: 404 })
     }
 
+    // Buscar grupo
+    const { data: group } = await supabase
+      .from('groups_view')
+      .select('id, name, slug')
+      .eq('id', number.group_id)
+      .single()
+
     return NextResponse.json({
       ...number,
-      group: number.groups,
-      groups: undefined,
+      group: group || null,
     })
   } catch (error) {
     console.error('Error in GET /api/numbers/[id]:', error)
@@ -54,11 +60,11 @@ export async function PUT(
     const body = await request.json()
     const { phone, name, custom_message, group_id, is_active } = body
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Verificar se número pertence à empresa
     const { data: existingNumber } = await supabase
-      .from('whatsapp_numbers')
+      .from('whatsapp_numbers_view')
       .select('id')
       .eq('id', params.id)
       .eq('company_id', user.company_id)
@@ -71,7 +77,7 @@ export async function PUT(
     // Se group_id foi alterado, verificar se novo grupo pertence à empresa
     if (group_id) {
       const { data: group } = await supabase
-        .from('groups')
+        .from('groups_view')
         .select('id')
         .eq('id', group_id)
         .eq('company_id', user.company_id)
@@ -82,26 +88,25 @@ export async function PUT(
       }
     }
 
-    const { data: number, error } = await supabase
-      .from('whatsapp_numbers')
-      .update({
-        phone: phone?.replace(/\D/g, ''),
-        name,
-        custom_message,
-        group_id,
-        is_active,
-        updated_at: new Date().toISOString(),
+    // Atualizar usando RPC
+    const { data: numberResult, error } = await supabase
+      .rpc('update_whatsapp_number', {
+        p_id: params.id,
+        p_phone: phone?.replace(/\D/g, ''),
+        p_name: name,
+        p_custom_message: custom_message,
+        p_group_id: group_id,
+        p_is_active: is_active,
       })
-      .eq('id', params.id)
-      .select()
-      .single()
 
     if (error) {
       console.error('Error updating number:', error)
       return NextResponse.json({ error: 'Failed to update number' }, { status: 500 })
     }
 
-    return NextResponse.json(number)
+    const numberData = Array.isArray(numberResult) ? numberResult[0] : numberResult
+
+    return NextResponse.json(numberData)
   } catch (error) {
     console.error('Error in PUT /api/numbers/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -119,11 +124,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Verificar se número pertence à empresa
     const { data: existingNumber } = await supabase
-      .from('whatsapp_numbers')
+      .from('whatsapp_numbers_view')
       .select('id')
       .eq('id', params.id)
       .eq('company_id', user.company_id)
@@ -133,10 +138,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Number not found' }, { status: 404 })
     }
 
-    const { error } = await supabase
-      .from('whatsapp_numbers')
-      .delete()
-      .eq('id', params.id)
+    // Deletar usando RPC
+    const { data: deleted, error } = await supabase
+      .rpc('delete_whatsapp_number', {
+        p_id: params.id,
+      })
 
     if (error) {
       console.error('Error deleting number:', error)

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getDeviceType, generateWhatsAppLink } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -11,11 +11,11 @@ export async function GET(
 ) {
   try {
     const { slug } = params
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
-    // Buscar grupo pelo slug
+    // Buscar grupo pelo slug usando view
     const { data: group, error: groupError } = await supabase
-      .from('groups')
+      .from('groups_view')
       .select('id, name, default_message, is_active, company_id')
       .eq('slug', slug)
       .single()
@@ -28,9 +28,9 @@ export async function GET(
       return NextResponse.redirect(new URL('/group-inactive', request.url))
     }
 
-    // Buscar próximo número ativo (round-robin)
+    // Buscar próximo número ativo (round-robin) usando view
     const { data: numbers, error: numbersError } = await supabase
-      .from('whatsapp_numbers')
+      .from('whatsapp_numbers_view')
       .select('id, phone, custom_message, last_used_at')
       .eq('group_id', group.id)
       .eq('is_active', true)
@@ -43,11 +43,11 @@ export async function GET(
 
     const selectedNumber = numbers[0]
 
-    // Atualizar last_used_at
+    // Atualizar last_used_at usando RPC
     await supabase
-      .from('whatsapp_numbers')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('id', selectedNumber.id)
+      .rpc('update_number_last_used', {
+        p_id: selectedNumber.id,
+      })
 
     // Obter informações do request para analytics
     const userAgent = request.headers.get('user-agent') || ''
@@ -57,15 +57,15 @@ export async function GET(
                'unknown'
     const referrer = request.headers.get('referer') || null
 
-    // Registrar clique
-    await supabase.from('clicks').insert({
-      company_id: group.company_id,
-      group_id: group.id,
-      number_id: selectedNumber.id,
-      ip_address: ip,
-      user_agent: userAgent,
-      device_type: deviceType,
-      referrer: referrer,
+    // Registrar clique usando RPC
+    await supabase.rpc('insert_click', {
+      p_company_id: group.company_id,
+      p_group_id: group.id,
+      p_number_id: selectedNumber.id,
+      p_ip_address: ip,
+      p_user_agent: userAgent,
+      p_device_type: deviceType,
+      p_referrer: referrer,
     })
 
     // Montar mensagem final

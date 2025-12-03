@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       period = 'today' // today, yesterday, last7days, last30days, thisMonth, lastMonth
     } = body
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Calcular datas baseado no período
     let start: Date
@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // Query base para cliques
+    // Query base para cliques usando view
     let clicksQuery = supabase
-      .from('clicks')
+      .from('clicks_view')
       .select('*')
       .eq('company_id', user.company_id)
       .gte('created_at', start.toISOString())
@@ -87,9 +87,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
     }
 
-    // Buscar grupos para os nomes
+    // Buscar grupos para os nomes usando view
     const { data: groups } = await supabase
-      .from('groups')
+      .from('groups_view')
       .select('id, name')
       .eq('company_id', user.company_id)
 

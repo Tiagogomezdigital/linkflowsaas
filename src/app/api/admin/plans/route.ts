@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -13,10 +13,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     const { data: plans, error } = await supabase
-      .schema('public')
       .from('subscription_plans_view')
       .select('*')
       .order('sort_order', { ascending: true })
@@ -93,8 +92,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServiceRoleClient()
-
     const { data: planResult, error } = await supabase
       .rpc('upsert_subscription_plan', {
         p_id: null,
@@ -126,7 +123,6 @@ export async function POST(request: NextRequest) {
 
     // Buscar plano criado da view para garantir formato correto
     const { data: createdPlan, error: fetchError } = await supabase
-      .schema('public')
       .from('subscription_plans_view')
       .select('*')
       .eq('id', planData.id)

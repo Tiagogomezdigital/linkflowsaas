@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -18,10 +18,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const search = searchParams.get('search')
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     let query = supabase
-      .schema('public')
       .from('companies_view')
       .select('*')
       .order('created_at', { ascending: false })
@@ -100,11 +99,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServiceRoleClient()
-
     // Verificar se slug já existe
     const { data: existingSlug } = await supabase
-      .schema('public')
       .from('companies_view')
       .select('id')
       .eq('slug', slug)

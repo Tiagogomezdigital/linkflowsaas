@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -17,11 +17,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
-    // Buscar grupo pelo slug
+    // Buscar grupo pelo slug usando view
     const { data: group, error: groupError } = await supabase
-      .from('groups')
+      .from('groups_view')
       .select('id, name, default_message, is_active, company_id')
       .eq('slug', groupSlug)
       .single()
@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Group is inactive' }, { status: 403 })
     }
 
-    // Buscar próximo número ativo (round-robin por last_used_at)
+    // Buscar próximo número ativo (round-robin por last_used_at) usando view
     const { data: numbers, error: numbersError } = await supabase
-      .from('whatsapp_numbers')
+      .from('whatsapp_numbers_view')
       .select('id, phone, custom_message, last_used_at')
       .eq('group_id', group.id)
       .eq('is_active', true)
@@ -54,11 +54,11 @@ export async function GET(request: NextRequest) {
 
     const selectedNumber = numbers[0]
 
-    // Atualizar last_used_at
+    // Atualizar last_used_at usando RPC
     await supabase
-      .from('whatsapp_numbers')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('id', selectedNumber.id)
+      .rpc('update_number_last_used', {
+        p_id: selectedNumber.id,
+      })
 
     // Montar mensagem final
     const finalMessage = [group.default_message, selectedNumber.custom_message]

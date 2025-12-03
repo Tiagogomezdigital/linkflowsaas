@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -13,20 +13,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
-    // Buscar grupos com números
+    // Buscar grupos usando view
     const { data: groups, error: groupsError } = await supabase
-      .from('groups')
-      .select(`
-        id,
-        name,
-        slug,
-        whatsapp_numbers (
-          id,
-          is_active
-        )
-      `)
+      .from('groups_view')
+      .select('id, name, slug')
       .eq('company_id', user.company_id)
 
     if (groupsError) {
@@ -43,38 +35,42 @@ export async function GET() {
 
     const groupStats = await Promise.all(
       (groups || []).map(async (group: any) => {
-        const numbers = group.whatsapp_numbers || []
+        // Buscar números do grupo usando view
+        const { data: numbers } = await supabase
+          .from('whatsapp_numbers_view')
+          .select('id, is_active')
+          .eq('group_id', group.id)
 
-        // Buscar total de cliques
+        // Buscar total de cliques usando view
         const { count: totalClicks } = await supabase
-          .from('clicks')
+          .from('clicks_view')
           .select('*', { count: 'exact', head: true })
           .eq('group_id', group.id)
 
         // Buscar cliques de hoje
         const { count: clicksToday } = await supabase
-          .from('clicks')
+          .from('clicks_view')
           .select('*', { count: 'exact', head: true })
           .eq('group_id', group.id)
           .gte('created_at', startOfDay.toISOString())
 
         // Buscar cliques da semana
         const { count: clicksThisWeek } = await supabase
-          .from('clicks')
+          .from('clicks_view')
           .select('*', { count: 'exact', head: true })
           .eq('group_id', group.id)
           .gte('created_at', startOfWeek.toISOString())
 
         // Buscar cliques do mês
         const { count: clicksThisMonth } = await supabase
-          .from('clicks')
+          .from('clicks_view')
           .select('*', { count: 'exact', head: true })
           .eq('group_id', group.id)
           .gte('created_at', startOfMonth.toISOString())
 
         // Buscar último clique
         const { data: lastClick } = await supabase
-          .from('clicks')
+          .from('clicks_view')
           .select('created_at')
           .eq('group_id', group.id)
           .order('created_at', { ascending: false })
@@ -85,8 +81,8 @@ export async function GET() {
           id: group.id,
           name: group.name,
           slug: group.slug,
-          total_numbers: numbers.length,
-          active_numbers: numbers.filter((n: any) => n.is_active).length,
+          total_numbers: (numbers || []).length,
+          active_numbers: (numbers || []).filter((n: any) => n.is_active).length,
           total_clicks: totalClicks || 0,
           clicks_today: clicksToday || 0,
           clicks_this_week: clicksThisWeek || 0,
