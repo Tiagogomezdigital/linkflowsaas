@@ -142,30 +142,57 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar grupo usando RPC
+    const rpcParams = {
+      p_company_id: user.company_id,
+      p_name: name,
+      p_slug: slug,
+    }
+
+    // Adicionar parâmetros opcionais apenas se definidos
+    if (description) rpcParams.p_description = description
+    if (default_message) rpcParams.p_default_message = default_message
+    if (is_active !== undefined) rpcParams.p_is_active = is_active
+
+    console.log('Calling insert_group RPC with params:', rpcParams)
+
     const { data: groupResult, error } = await supabase
-      .rpc('insert_group', {
-        p_company_id: user.company_id,
-        p_name: name,
-        p_slug: slug,
-        p_description: description || null,
-        p_default_message: default_message || null,
-        p_is_active: is_active,
-      })
+      .rpc('insert_group', rpcParams)
 
     if (error) {
       console.error('Error creating group:', error)
-      console.error('RPC params:', { company_id: user.company_id, name, slug })
+      console.error('RPC params:', rpcParams)
+      console.error('Error details:', JSON.stringify(error, null, 2))
       return NextResponse.json({ 
         error: 'Failed to create group',
-        details: error.message 
+        details: error.message || 'Unknown error'
       }, { status: 500 })
     }
 
-    // A função RPC retorna JSON
-    const groupData = Array.isArray(groupResult) ? groupResult[0] : groupResult
+    console.log('RPC result:', groupResult)
 
-    if (!groupData) {
-      return NextResponse.json({ error: 'Failed to create group' }, { status: 500 })
+    // A função RPC retorna JSON
+    let groupData = null
+    if (groupResult) {
+      if (Array.isArray(groupResult)) {
+        groupData = groupResult[0]
+      } else if (typeof groupResult === 'object') {
+        groupData = groupResult
+      } else if (typeof groupResult === 'string') {
+        // Se retornar string JSON, fazer parse
+        try {
+          groupData = JSON.parse(groupResult)
+        } catch (e) {
+          console.error('Error parsing groupResult:', e)
+        }
+      }
+    }
+
+    if (!groupData || !groupData.id) {
+      console.error('Invalid group data returned:', groupResult)
+      return NextResponse.json({ 
+        error: 'Failed to create group',
+        details: 'Invalid response from server'
+      }, { status: 500 })
     }
 
     // Buscar grupo criado da view para garantir formato correto
@@ -176,23 +203,34 @@ export async function POST(request: NextRequest) {
       .eq('id', groupData.id)
       .single()
 
-    if (fetchError || !createdGroup) {
+    if (fetchError) {
       console.error('Error fetching created group:', fetchError)
-      return NextResponse.json(groupData, { status: 201 })
+      // Retornar dados do RPC mesmo assim
+      return NextResponse.json({
+        ...groupData,
+        total_numbers: 0,
+        active_numbers: 0,
+      }, { status: 201 })
     }
 
     // Atualizar contador de grupos no tenant_limits (se existir)
     try {
-      await supabase.rpc('increment_group_count', {
+      const { error: incrementError } = await supabase.rpc('increment_group_count', {
         p_company_id: user.company_id
       })
+      if (incrementError) {
+        console.log('Could not increment group count:', incrementError)
+      }
     } catch (error) {
       // Ignorar erro se tenant_limits não existir ainda
-      // Será criado na próxima verificação de limite
       console.log('Could not increment group count:', error)
     }
 
-    return NextResponse.json(createdGroup, { status: 201 })
+    return NextResponse.json({
+      ...createdGroup,
+      total_numbers: 0,
+      active_numbers: 0,
+    }, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/groups:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
