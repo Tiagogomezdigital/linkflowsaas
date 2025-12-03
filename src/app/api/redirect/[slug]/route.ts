@@ -5,6 +5,16 @@ import { getDeviceType, generateWhatsAppLink } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+function getBaseUrl(request: NextRequest): string {
+  try {
+    const url = new URL(request.url)
+    return `${url.protocol}//${url.host}`
+  } catch {
+    // Fallback se não conseguir construir URL
+    return request.url.split('/api')[0] || 'https://linkflowsaas.vercel.app'
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -12,6 +22,15 @@ export async function GET(
   const { slug } = params
   console.log('[REDIRECT] Request for slug:', slug)
   console.log('[REDIRECT] Request URL:', request.url)
+  
+  const baseUrl = getBaseUrl(request)
+  console.log('[REDIRECT] Base URL:', baseUrl)
+  
+  // Verificar variáveis de ambiente
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('[REDIRECT] Missing environment variables')
+    return NextResponse.redirect(`${baseUrl}/error`)
+  }
   
   try {
     const supabase = createPublicSchemaClient()
@@ -27,13 +46,11 @@ export async function GET(
 
     if (groupError) {
       console.error('[REDIRECT] Error fetching group:', JSON.stringify(groupError, null, 2))
-      const baseUrl = request.url.split('/api')[0]
       return NextResponse.redirect(`${baseUrl}/not-found`)
     }
 
     if (!group) {
       console.log('[REDIRECT] Group not found for slug:', slug)
-      const baseUrl = request.url.split('/api')[0]
       return NextResponse.redirect(`${baseUrl}/not-found`)
     }
 
@@ -41,7 +58,6 @@ export async function GET(
 
     if (!group.is_active) {
       console.log('[REDIRECT] Group is inactive:', group.id)
-      const baseUrl = request.url.split('/api')[0]
       return NextResponse.redirect(`${baseUrl}/group-inactive`)
     }
 
@@ -57,7 +73,6 @@ export async function GET(
 
     if (numbersError) {
       console.error('[REDIRECT] Error fetching numbers:', JSON.stringify(numbersError, null, 2))
-      const baseUrl = request.url.split('/api')[0]
       return NextResponse.redirect(`${baseUrl}/no-numbers`)
     }
 
@@ -65,7 +80,6 @@ export async function GET(
 
     if (!numbers || numbers.length === 0) {
       console.log('[REDIRECT] No active numbers found for group:', group.id)
-      const baseUrl = request.url.split('/api')[0]
       return NextResponse.redirect(`${baseUrl}/no-numbers`)
     }
 
@@ -123,7 +137,6 @@ export async function GET(
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : undefined,
     })
-    const baseUrl = request.url.split('/api')[0]
     return NextResponse.redirect(`${baseUrl}/error`)
   }
 }
