@@ -82,33 +82,53 @@ export async function POST(request: NextRequest) {
 
     // Se não existir tenant_limits, criar com limites padrão do plano free
     if (!tenantLimits) {
-      // Buscar plano Free
-      const { data: freePlan } = await supabase
-        .schema('public')
-        .from('subscription_plans_view')
-        .select('id, limits')
-        .eq('billing_cycle', 'lifetime')
-        .single()
+      try {
+        // Buscar plano Free
+        const { data: freePlan } = await supabase
+          .schema('public')
+          .from('subscription_plans_view')
+          .select('id, limits')
+          .eq('billing_cycle', 'lifetime')
+          .single()
 
-      if (freePlan) {
-        const limits = freePlan.limits || { maxGroups: 3, maxLinksPerMonth: 100, maxTeamMembers: 1 }
-        
-        // Criar tenant_limits usando RPC ou inserção direta
-        const { data: newLimits } = await supabase
-          .rpc('create_tenant_limits', {
-            p_company_id: user.company_id,
-            p_plan_id: freePlan.id,
-            p_max_groups: limits.maxGroups || 3,
-            p_max_links_per_month: limits.maxLinksPerMonth || 100,
-            p_max_team_members: limits.maxTeamMembers || 1,
-          })
+        if (freePlan) {
+          const limits = freePlan.limits || { maxGroups: 3, maxLinksPerMonth: 100, maxTeamMembers: 1 }
+          
+          // Criar tenant_limits usando RPC
+          const { data: newLimitsResult, error: createLimitsError } = await supabase
+            .rpc('create_tenant_limits', {
+              p_company_id: user.company_id,
+              p_plan_id: freePlan.id,
+              p_max_groups: limits.maxGroups || 3,
+              p_max_links_per_month: limits.maxLinksPerMonth || 100,
+              p_max_team_members: limits.maxTeamMembers || 1,
+            })
 
-        tenantLimits = {
-          max_groups: limits.maxGroups || 3,
-          current_groups: 0,
-          plan_id: freePlan.id,
+          if (!createLimitsError && newLimitsResult) {
+            const newLimits = newLimitsResult.create_tenant_limits || newLimitsResult
+            tenantLimits = {
+              max_groups: newLimits.max_groups || limits.maxGroups || 3,
+              current_groups: newLimits.current_groups || 0,
+              plan_id: freePlan.id,
+            }
+          } else {
+            // Fallback: usar limites do plano
+            tenantLimits = {
+              max_groups: limits.maxGroups || 3,
+              current_groups: 0,
+              plan_id: freePlan.id,
+            }
+          }
+        } else {
+          // Fallback: usar limites padrão
+          tenantLimits = {
+            max_groups: 3,
+            current_groups: 0,
+            plan_id: null,
+          }
         }
-      } else {
+      } catch (error) {
+        console.error('Error creating tenant_limits:', error)
         // Fallback: usar limites padrão
         tenantLimits = {
           max_groups: 3,
