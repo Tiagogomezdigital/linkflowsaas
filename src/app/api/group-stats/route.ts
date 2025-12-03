@@ -41,41 +41,33 @@ export async function GET() {
           .select('id, is_active')
           .eq('group_id', group.id)
 
-        // Buscar total de cliques usando view
-        const { count: totalClicks } = await supabase
+        // Buscar TODOS os cliques do grupo (mais confiável que count)
+        const { data: allClicks } = await supabase
           .from('clicks_view')
-          .select('*', { count: 'exact', head: true })
+          .select('id, created_at')
           .eq('group_id', group.id)
+        
+        const clicksArray = allClicks || []
+        const totalClicks = clicksArray.length
 
-        // Buscar cliques de hoje
-        const { count: clicksToday } = await supabase
-          .from('clicks_view')
-          .select('*', { count: 'exact', head: true })
-          .eq('group_id', group.id)
-          .gte('created_at', startOfDay.toISOString())
+        // Filtrar cliques por período
+        const clicksToday = clicksArray.filter((c: any) => 
+          new Date(c.created_at) >= startOfDay
+        ).length
 
-        // Buscar cliques da semana
-        const { count: clicksThisWeek } = await supabase
-          .from('clicks_view')
-          .select('*', { count: 'exact', head: true })
-          .eq('group_id', group.id)
-          .gte('created_at', startOfWeek.toISOString())
+        const clicksThisWeek = clicksArray.filter((c: any) => 
+          new Date(c.created_at) >= startOfWeek
+        ).length
 
-        // Buscar cliques do mês
-        const { count: clicksThisMonth } = await supabase
-          .from('clicks_view')
-          .select('*', { count: 'exact', head: true })
-          .eq('group_id', group.id)
-          .gte('created_at', startOfMonth.toISOString())
+        const clicksThisMonth = clicksArray.filter((c: any) => 
+          new Date(c.created_at) >= startOfMonth
+        ).length
 
-        // Buscar último clique
-        const { data: lastClick } = await supabase
-          .from('clicks_view')
-          .select('created_at')
-          .eq('group_id', group.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
+        // Buscar último clique (ordenar array já buscado)
+        const sortedClicks = [...clicksArray].sort((a: any, b: any) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        const lastClickAt = sortedClicks[0]?.created_at || null
 
         return {
           id: group.id,
@@ -83,11 +75,11 @@ export async function GET() {
           slug: group.slug,
           total_numbers: (numbers || []).length,
           active_numbers: (numbers || []).filter((n: any) => n.is_active).length,
-          total_clicks: totalClicks || 0,
-          clicks_today: clicksToday || 0,
-          clicks_this_week: clicksThisWeek || 0,
-          clicks_this_month: clicksThisMonth || 0,
-          last_click_at: lastClick?.created_at || null,
+          total_clicks: totalClicks,
+          clicks_today: clicksToday,
+          clicks_this_week: clicksThisWeek,
+          clicks_this_month: clicksThisMonth,
+          last_click_at: lastClickAt,
         }
       })
     )
