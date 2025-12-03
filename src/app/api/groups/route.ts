@@ -144,6 +144,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(groupData, { status: 201 })
     }
 
+    // Atualizar contador de grupos no tenant_limits
+    await supabase.rpc('increment_group_count', {
+      p_company_id: user.company_id
+    })
+
     return NextResponse.json(createdGroup, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/groups:', error)

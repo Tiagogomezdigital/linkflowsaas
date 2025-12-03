@@ -19,7 +19,8 @@ export async function GET(
     const supabase = createServiceRoleClient()
 
     const { data: group, error } = await supabase
-      .from('groups')
+      .schema('public')
+      .from('groups_view')
       .select('*')
       .eq('id', params.id)
       .eq('company_id', user.company_id)
@@ -54,7 +55,8 @@ export async function PUT(
 
     // Verificar se grupo pertence à empresa
     const { data: existingGroup } = await supabase
-      .from('groups')
+      .schema('public')
+      .from('groups_view')
       .select('id')
       .eq('id', params.id)
       .eq('company_id', user.company_id)
@@ -64,25 +66,44 @@ export async function PUT(
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    const { data: group, error } = await supabase
-      .from('groups')
-      .update({
-        name,
-        description,
-        default_message,
-        is_active,
-        updated_at: new Date().toISOString(),
+    // Usar RPC para atualizar grupo
+    const { data: groupResult, error } = await supabase
+      .rpc('update_group', {
+        p_id: params.id,
+        p_name: name,
+        p_description: description,
+        p_default_message: default_message,
+        p_is_active: is_active,
       })
-      .eq('id', params.id)
-      .select()
-      .single()
 
     if (error) {
       console.error('Error updating group:', error)
-      return NextResponse.json({ error: 'Failed to update group' }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to update group',
+        details: error.message 
+      }, { status: 500 })
     }
 
-    return NextResponse.json(group)
+    // A função RPC retorna JSON
+    const groupData = Array.isArray(groupResult) ? groupResult[0] : groupResult
+
+    if (!groupData) {
+      return NextResponse.json({ error: 'Group not found' }, { status: 404 })
+    }
+
+    // Buscar grupo atualizado da view
+    const { data: updatedGroup, error: fetchError } = await supabase
+      .schema('public')
+      .from('groups_view')
+      .select('*')
+      .eq('id', params.id)
+      .single()
+
+    if (fetchError || !updatedGroup) {
+      return NextResponse.json(groupData)
+    }
+
+    return NextResponse.json(updatedGroup)
   } catch (error) {
     console.error('Error in PUT /api/groups/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
