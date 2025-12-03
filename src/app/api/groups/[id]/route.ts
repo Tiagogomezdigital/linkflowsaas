@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient, createPublicSchemaClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -50,11 +50,10 @@ export async function PUT(
     const body = await request.json()
     const { name, description, default_message, is_active } = body
 
-    const supabasePublic = createPublicSchemaClient()
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Verificar se grupo pertence à empresa
-    const { data: existingGroup } = await supabasePublic
+    const { data: existingGroup } = await supabase
       .from('groups_view')
       .select('id')
       .eq('id', params.id)
@@ -91,7 +90,7 @@ export async function PUT(
     }
 
     // Buscar grupo atualizado da view
-    const { data: updatedGroup, error: fetchError } = await supabasePublic
+    const { data: updatedGroup, error: fetchError } = await supabase
       .from('groups_view')
       .select('*')
       .eq('id', params.id)
@@ -119,11 +118,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabasePublic = createPublicSchemaClient()
-    const supabase = createServiceRoleClient()
+    const supabase = createPublicSchemaClient()
 
     // Verificar se grupo pertence à empresa
-    const { data: existingGroup } = await supabasePublic
+    const { data: existingGroup } = await supabase
       .from('groups_view')
       .select('id, company_id')
       .eq('id', params.id)

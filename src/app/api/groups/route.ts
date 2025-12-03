@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient, createPublicSchemaClient } from '@/lib/supabase/server'
+import { createPublicSchemaClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -170,9 +170,8 @@ export async function POST(request: NextRequest) {
 
     console.log('Calling insert_group RPC with params:', rpcParams)
 
-    // RPCs podem ser chamados com qualquer cliente, mas vamos usar service_role para garantir permissões
-    const supabaseRPC = createServiceRoleClient()
-    const { data: groupResult, error } = await supabaseRPC
+    // RPCs no schema public precisam do cliente configurado para public
+    const { data: groupResult, error } = await supabase
       .rpc('insert_group', rpcParams)
 
     if (error) {
@@ -241,7 +240,7 @@ export async function POST(request: NextRequest) {
 
     // Atualizar contador de grupos no tenant_limits (se existir)
     try {
-      const { error: incrementError } = await supabaseRPC.rpc('increment_group_count', {
+      const { error: incrementError } = await supabase.rpc('increment_group_count', {
         p_company_id: user.company_id
       })
       if (incrementError) {
