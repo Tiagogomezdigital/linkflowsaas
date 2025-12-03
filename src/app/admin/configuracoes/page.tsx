@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Settings, 
   Globe, 
@@ -20,6 +20,7 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 
 export default function ConfiguracoesPage() {
+  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -39,13 +40,84 @@ export default function ConfiguracoesPage() {
   const [maxTrialGroups, setMaxTrialGroups] = useState('2')
   const [maxTrialNumbers, setMaxTrialNumbers] = useState('10')
 
+  // Carregar configurações ao montar componente
+  useEffect(() => {
+    const loadSettings = async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch('/api/admin/settings')
+        if (response.ok) {
+          const settings = await response.json()
+          
+          if (settings.general) {
+            setAppName(settings.general.appName || 'LinkFlow')
+            setAppUrl(settings.general.appUrl || 'https://linkflowsaas.vercel.app')
+            setSupportEmail(settings.general.supportEmail || 'suporte@linkflow.com')
+          }
+          
+          if (settings.email) {
+            setSmtpHost(settings.email.smtpHost || 'smtp.resend.com')
+            setSmtpPort(settings.email.smtpPort || '587')
+            setSmtpUser(settings.email.smtpUser || '')
+            setSmtpFrom(settings.email.smtpFrom || 'noreply@linkflow.com')
+          }
+          
+          if (settings.trial) {
+            setTrialDays(settings.trial.trialDays?.toString() || '14')
+            setMaxTrialGroups(settings.trial.maxTrialGroups?.toString() || '2')
+            setMaxTrialNumbers(settings.trial.maxTrialNumbers?.toString() || '10')
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadSettings()
+  }, [])
+
   const handleSave = async () => {
     setIsSaving(true)
-    // Simular salvamento
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setIsSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      const settings = {
+        general: {
+          appName,
+          appUrl,
+          supportEmail,
+        },
+        email: {
+          smtpHost,
+          smtpPort,
+          smtpUser,
+          smtpFrom,
+        },
+        trial: {
+          trialDays: parseInt(trialDays),
+          maxTrialGroups: parseInt(maxTrialGroups),
+          maxTrialNumbers: parseInt(maxTrialNumbers),
+        },
+      }
+
+      const response = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao salvar configurações')
+      }
+
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      alert('Erro ao salvar configurações. Tente novamente.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -148,8 +220,29 @@ export default function ConfiguracoesPage() {
               variant="outline" 
               size="sm"
               onClick={async () => {
-                // TODO: Implementar teste de conexão SMTP
-                alert('Funcionalidade de testar conexão SMTP será implementada em breve')
+                try {
+                  const response = await fetch('/api/admin/settings/test-smtp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      smtpHost,
+                      smtpPort,
+                      smtpUser,
+                      smtpPassword: smtpUser, // Em produção, use um campo separado para senha
+                    }),
+                  })
+
+                  const data = await response.json()
+                  
+                  if (response.ok) {
+                    alert('✅ ' + (data.message || 'Conexão SMTP testada com sucesso!'))
+                  } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao testar conexão SMTP'))
+                  }
+                } catch (error) {
+                  console.error('Error testing SMTP:', error)
+                  alert('❌ Erro ao testar conexão SMTP')
+                }
               }}
             >
               Testar Conexão
