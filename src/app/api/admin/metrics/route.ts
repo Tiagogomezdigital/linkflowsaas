@@ -177,29 +177,39 @@ export async function GET(request: NextRequest) {
     const { data: topCompaniesData } = await supabase
       .schema('public')
       .from('clicks_view')
-      .select('company_id, companies_view!inner(name)')
+      .select('company_id')
       .gte('created_at', startDate.toISOString())
 
-    const companyClicks: Record<string, { count: number; name: string }> = {}
+    const companyClicks: Record<string, number> = {}
     topCompaniesData?.forEach((click: any) => {
       const companyId = click.company_id
       if (companyId) {
-        if (!companyClicks[companyId]) {
-          companyClicks[companyId] = {
-            count: 0,
-            name: click.companies_view?.name || 'Sem nome',
-          }
-        }
-        companyClicks[companyId].count++
+        companyClicks[companyId] = (companyClicks[companyId] || 0) + 1
       }
     })
+
+    // Buscar nomes das empresas
+    const companyIds = Object.keys(companyClicks).slice(0, 5)
+    const companyNames: Record<string, string> = {}
+    
+    if (companyIds.length > 0) {
+      const { data: companies } = await supabase
+        .schema('public')
+        .from('companies_view')
+        .select('id, name')
+        .in('id', companyIds)
+
+      companies?.forEach((company: any) => {
+        companyNames[company.id] = company.name
+      })
+    }
 
     // Buscar grupos por empresa para calcular growth
     const topEmpresas = await Promise.all(
       Object.entries(companyClicks)
-        .sort((a, b) => b[1].count - a[1].count)
+        .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(async ([companyId, data]) => {
+        .map(async ([companyId, count]) => {
           const { count: grupos } = await supabase
             .schema('public')
             .from('groups_view')
@@ -207,8 +217,9 @@ export async function GET(request: NextRequest) {
             .eq('company_id', companyId)
 
           // Calcular growth (comparar com período anterior)
+          const periodDays = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
           const previousStart = new Date(startDate)
-          previousStart.setDate(previousStart.getDate() - (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+          previousStart.setDate(previousStart.getDate() - periodDays)
 
           const { count: previousClicks } = await supabase
             .schema('public')
@@ -219,12 +230,12 @@ export async function GET(request: NextRequest) {
             .lt('created_at', startDate.toISOString())
 
           const growth = previousClicks && previousClicks > 0
-            ? Math.round(((data.count - previousClicks) / previousClicks) * 100)
+            ? Math.round(((count - previousClicks) / previousClicks) * 100)
             : 0
 
           return {
-            nome: data.name,
-            cliques: data.count,
+            nome: companyNames[companyId] || 'Sem nome',
+            cliques: count,
             grupos: grupos || 0,
             growth,
           }
