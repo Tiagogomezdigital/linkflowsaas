@@ -53,14 +53,6 @@ export default async function RedirectPage({ params }: PageProps) {
 
   const selectedNumber = numbers[0]
 
-  // Atualizar last_used_at usando RPC (não bloquear se falhar)
-  supabase
-    .rpc('update_number_last_used', {
-      p_id: selectedNumber.id,
-    })
-    .then(() => {})
-    .catch((err) => console.error('[REDIRECT PAGE] Error updating last_used_at:', err))
-
   // Obter informações do request para analytics
   const headersList = headers()
   const userAgent = headersList.get('user-agent') || ''
@@ -70,18 +62,26 @@ export default async function RedirectPage({ params }: PageProps) {
              'unknown'
   const referrer = headersList.get('referer') || null
 
-  // Registrar clique usando RPC (não bloquear se falhar)
-  supabase.rpc('insert_click', {
-    p_company_id: group.company_id,
-    p_group_id: group.id,
-    p_number_id: selectedNumber.id,
-    p_ip_address: ip,
-    p_user_agent: userAgent,
-    p_device_type: deviceType,
-    p_referrer: referrer,
+  // Atualizar last_used_at e registrar clique (não bloquear se falhar)
+  // Usando Promise.allSettled para não bloquear e ignorar erros
+  Promise.allSettled([
+    supabase.rpc('update_number_last_used', { p_id: selectedNumber.id }),
+    supabase.rpc('insert_click', {
+      p_company_id: group.company_id,
+      p_group_id: group.id,
+      p_number_id: selectedNumber.id,
+      p_ip_address: ip,
+      p_user_agent: userAgent,
+      p_device_type: deviceType,
+      p_referrer: referrer,
+    })
+  ]).then((results) => {
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`[REDIRECT PAGE] RPC ${index} failed:`, result.reason)
+      }
+    })
   })
-    .then(() => {})
-    .catch((err) => console.error('[REDIRECT PAGE] Error inserting click:', err))
 
   // Montar mensagem final
   const finalMessage = [group.default_message, selectedNumber.custom_message]
