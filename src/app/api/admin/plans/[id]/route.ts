@@ -95,23 +95,26 @@ export async function PUT(
     if (sort_order !== undefined) rpcParams.p_sort_order = parseInt(sort_order)
 
     // Usar RPC para atualizar
-    const { data: plan, error } = await supabase
+    const { data: planResult, error } = await supabase
       .rpc('upsert_subscription_plan', rpcParams)
 
     if (error) {
       console.error('Error updating plan:', error)
-      console.error('RPC params:', rpcParams)
+      console.error('RPC params:', JSON.stringify(rpcParams, null, 2))
       return NextResponse.json({ 
         error: 'Failed to update plan',
         details: error.message 
       }, { status: 500 })
     }
 
-    if (!plan) {
+    // A função RPC retorna JSON, então pode ser um objeto ou array
+    const planData = Array.isArray(planResult) ? planResult[0] : planResult
+
+    if (!planData) {
       return NextResponse.json({ error: 'Plan not found or update failed' }, { status: 404 })
     }
 
-    // Buscar plano atualizado da view para garantir formato correto
+    // Buscar plano atualizado da view para garantir formato correto e consistência
     const { data: updatedPlan, error: fetchError } = await supabase
       .schema('public')
       .from('subscription_plans_view')
@@ -119,13 +122,13 @@ export async function PUT(
       .eq('id', params.id)
       .single()
 
-    if (fetchError || !updatedPlan) {
+    if (fetchError) {
       console.error('Error fetching updated plan:', fetchError)
-      // Retornar dados do RPC mesmo assim
-      return NextResponse.json(plan)
+      // Se não conseguir buscar da view, retornar dados do RPC
+      return NextResponse.json(planData)
     }
 
-    return NextResponse.json(updatedPlan)
+    return NextResponse.json(updatedPlan || planData)
   } catch (error) {
     console.error('Error in PUT /api/admin/plans/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
