@@ -80,26 +80,52 @@ export async function PUT(
       )
     }
 
+    // Preparar parâmetros para RPC (não enviar undefined, apenas valores definidos)
+    const rpcParams: any = {
+      p_id: params.id,
+    }
+
+    if (name !== undefined) rpcParams.p_name = name
+    if (description !== undefined) rpcParams.p_description = description
+    if (price_cents !== undefined) rpcParams.p_price_cents = parseInt(price_cents)
+    if (billing_cycle !== undefined) rpcParams.p_billing_cycle = billing_cycle
+    if (features !== undefined) rpcParams.p_features = features
+    if (limits !== undefined) rpcParams.p_limits = limits
+    if (is_active !== undefined) rpcParams.p_is_active = is_active
+    if (sort_order !== undefined) rpcParams.p_sort_order = parseInt(sort_order)
+
     // Usar RPC para atualizar
     const { data: plan, error } = await supabase
-      .rpc('upsert_subscription_plan', {
-        p_id: params.id,
-        p_name: name,
-        p_description: description,
-        p_price_cents: price_cents !== undefined ? parseInt(price_cents) : null,
-        p_billing_cycle: billing_cycle,
-        p_features: features,
-        p_limits: limits,
-        p_is_active: is_active,
-        p_sort_order: sort_order !== undefined ? parseInt(sort_order) : null,
-      })
+      .rpc('upsert_subscription_plan', rpcParams)
 
     if (error) {
       console.error('Error updating plan:', error)
-      return NextResponse.json({ error: 'Failed to update plan' }, { status: 500 })
+      console.error('RPC params:', rpcParams)
+      return NextResponse.json({ 
+        error: 'Failed to update plan',
+        details: error.message 
+      }, { status: 500 })
     }
 
-    return NextResponse.json(plan)
+    if (!plan) {
+      return NextResponse.json({ error: 'Plan not found or update failed' }, { status: 404 })
+    }
+
+    // Buscar plano atualizado da view para garantir formato correto
+    const { data: updatedPlan, error: fetchError } = await supabase
+      .schema('public')
+      .from('subscription_plans_view')
+      .select('*')
+      .eq('id', params.id)
+      .single()
+
+    if (fetchError || !updatedPlan) {
+      console.error('Error fetching updated plan:', fetchError)
+      // Retornar dados do RPC mesmo assim
+      return NextResponse.json(plan)
+    }
+
+    return NextResponse.json(updatedPlan)
   } catch (error) {
     console.error('Error in PUT /api/admin/plans/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
