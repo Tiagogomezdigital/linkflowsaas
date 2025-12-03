@@ -54,10 +54,10 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startOfMonth.toISOString())
 
-    // Distribuição por plano
+    // Distribuição por plano (excluindo empresas admin)
     const { data: planos } = await supabase
       .from('companies_view')
-      .select('plan_type')
+      .select('plan_type, name')
 
     const distribuicaoPlanos = {
       free: 0,
@@ -66,6 +66,16 @@ export async function GET() {
     }
 
     planos?.forEach((company: any) => {
+      // Excluir empresas admin da contagem de planos
+      const isAdminCompany = company.name && (
+        company.name.toLowerCase().includes('admin') ||
+        company.name.toLowerCase() === 'admin company'
+      )
+      
+      if (isAdminCompany) {
+        return // Não contar empresas admin
+      }
+
       const plan = company.plan_type
       if (plan && plan in distribuicaoPlanos) {
         distribuicaoPlanos[plan as keyof typeof distribuicaoPlanos]++
