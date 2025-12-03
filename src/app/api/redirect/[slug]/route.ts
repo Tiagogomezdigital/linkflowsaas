@@ -15,6 +15,18 @@ function getBaseUrl(request: NextRequest): string {
   }
 }
 
+function buildRedirectUrl(baseUrl: string, path: string, reason?: string) {
+  try {
+    const url = new URL(path, baseUrl)
+    if (reason) {
+      url.searchParams.set('reason', reason)
+    }
+    return url.toString()
+  } catch {
+    return `${baseUrl}${path}${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -25,10 +37,14 @@ export async function GET(
   
   const baseUrl = getBaseUrl(request)
   console.log('[REDIRECT API] Base URL:', baseUrl)
+  const debugMode = request.nextUrl.searchParams.get('debug') === '1'
   
   if (!slug) {
     console.error('[REDIRECT API] No slug provided')
-    return NextResponse.redirect(`${baseUrl}/not-found`)
+    if (debugMode) {
+      return NextResponse.json({ error: 'missing-slug' }, { status: 400 })
+    }
+    return NextResponse.redirect(buildRedirectUrl(baseUrl, '/not-found', 'missing-slug'))
   }
   
   // Verificar variáveis de ambiente
@@ -40,7 +56,13 @@ export async function GET(
   
   if (!supabaseUrl || !supabaseKey) {
     console.error('[REDIRECT API] Missing environment variables')
-    return NextResponse.redirect(`${baseUrl}/error`)
+    if (debugMode) {
+      return NextResponse.json(
+        { error: 'missing-env', supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey },
+        { status: 500 }
+      )
+    }
+    return NextResponse.redirect(buildRedirectUrl(baseUrl, '/error', 'missing-env'))
   }
   
   try {
@@ -56,23 +78,32 @@ export async function GET(
       .select('id, name, default_message, is_active, company_id')
       .eq('slug', slug)
       .single()
-
+    
     console.log('[REDIRECT API] Group query result:', { group: group?.id, error: groupError?.message })
 
     if (groupError) {
       console.error('[REDIRECT API] Error fetching group:', groupError)
-      return NextResponse.redirect(`${baseUrl}/not-found`)
+      if (debugMode) {
+        return NextResponse.json({ error: 'group-error', details: groupError }, { status: 404 })
+      }
+      return NextResponse.redirect(buildRedirectUrl(baseUrl, '/not-found', 'group-error'))
     }
 
     if (!group) {
       console.log('[REDIRECT API] Group not found for slug:', slug)
-      return NextResponse.redirect(`${baseUrl}/not-found`)
+      if (debugMode) {
+        return NextResponse.json({ error: 'group-not-found' }, { status: 404 })
+      }
+      return NextResponse.redirect(buildRedirectUrl(baseUrl, '/not-found', 'no-group'))
     }
 
     console.log('[REDIRECT API] Group found:', group.name, 'active:', group.is_active)
 
     if (!group.is_active) {
-      return NextResponse.redirect(`${baseUrl}/group-inactive`)
+      if (debugMode) {
+        return NextResponse.json({ error: 'group-inactive' }, { status: 400 })
+      }
+      return NextResponse.redirect(buildRedirectUrl(baseUrl, '/group-inactive', 'inactive-group'))
     }
 
     // Buscar próximo número ativo (round-robin) usando view
@@ -89,7 +120,10 @@ export async function GET(
 
     if (numbersError || !numbers || numbers.length === 0) {
       console.log('[REDIRECT API] No numbers found')
-      return NextResponse.redirect(`${baseUrl}/no-numbers`)
+      if (debugMode) {
+        return NextResponse.json({ error: 'no-numbers', details: numbersError }, { status: 404 })
+      }
+      return NextResponse.redirect(buildRedirectUrl(baseUrl, '/no-numbers', 'no-numbers'))
     }
 
     const selectedNumber = numbers[0]
@@ -125,7 +159,13 @@ export async function GET(
     return NextResponse.redirect(whatsappUrl, 302)
   } catch (error) {
     console.error('[REDIRECT API] Unexpected error:', error)
-    return NextResponse.redirect(`${baseUrl}/error`, 302)
+    if (debugMode) {
+      return NextResponse.json(
+        { error: 'unexpected', message: error instanceof Error ? error.message : String(error) },
+        { status: 500 }
+      )
+    }
+    return NextResponse.redirect(buildRedirectUrl(baseUrl, '/error', 'unexpected'))
   }
 }
 
