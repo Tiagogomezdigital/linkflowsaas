@@ -181,9 +181,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(groupData, { status: 201 })
     }
 
-    // Atualizar contador de grupos no tenant_limits
+    // Atualizar contador de grupos no tenant_limits (se existir)
     await supabase.rpc('increment_group_count', {
       p_company_id: user.company_id
+    }).catch(() => {
+      // Ignorar erro se tenant_limits não existir ainda
+      // Será criado na próxima verificação de limite
     })
 
     return NextResponse.json(createdGroup, { status: 201 })
