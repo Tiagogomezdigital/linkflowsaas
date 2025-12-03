@@ -31,13 +31,14 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const requestUrl = new URL(request.url)
   const { slug } = params
   console.log('[REDIRECT API] Request for slug:', slug)
   console.log('[REDIRECT API] Request URL:', request.url)
   
   const baseUrl = getBaseUrl(request)
   console.log('[REDIRECT API] Base URL:', baseUrl)
-  const debugMode = request.nextUrl.searchParams.get('debug') === '1'
+  const debugMode = requestUrl.searchParams.get('debug') === '1'
   
   if (!slug) {
     console.error('[REDIRECT API] No slug provided')
