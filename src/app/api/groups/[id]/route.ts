@@ -125,8 +125,9 @@ export async function DELETE(
 
     // Verificar se grupo pertence à empresa
     const { data: existingGroup } = await supabase
-      .from('groups')
-      .select('id')
+      .schema('public')
+      .from('groups_view')
+      .select('id, company_id')
       .eq('id', params.id)
       .eq('company_id', user.company_id)
       .single()
@@ -135,22 +136,30 @@ export async function DELETE(
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    // Deletar números associados primeiro
-    await supabase
-      .from('whatsapp_numbers')
-      .delete()
-      .eq('group_id', params.id)
-
-    // Deletar grupo
-    const { error } = await supabase
-      .from('groups')
-      .delete()
-      .eq('id', params.id)
+    // Usar RPC para deletar grupo (já deleta números associados)
+    const { data: deleted, error } = await supabase
+      .rpc('delete_group', {
+        p_id: params.id
+      })
 
     if (error) {
       console.error('Error deleting group:', error)
-      return NextResponse.json({ error: 'Failed to delete group' }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to delete group',
+        details: error.message 
+      }, { status: 500 })
     }
+
+    if (!deleted) {
+      return NextResponse.json({ error: 'Group not found or could not be deleted' }, { status: 404 })
+    }
+
+    // Decrementar contador de grupos no tenant_limits
+    await supabase.rpc('decrement_group_count', {
+      p_company_id: user.company_id
+    }).catch(() => {
+      // Ignorar erro se função não existir ainda
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
