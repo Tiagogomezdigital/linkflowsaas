@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar grupos para cada número
-    const groupIds = [...new Set((numbers || []).map((n: any) => n.group_id))]
+    const groupIds = Array.from(new Set((numbers || []).map((n: any) => n.group_id)))
     const { data: groups } = await supabase
       .from('groups_view')
       .select('id, name, slug')
