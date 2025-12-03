@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient()
 
-    const { data: plan, error } = await supabase
+    const { data: planResult, error } = await supabase
       .rpc('upsert_subscription_plan', {
         p_id: null,
         p_name: name,
@@ -111,10 +111,33 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating plan:', error)
+      return NextResponse.json({ 
+        error: 'Failed to create plan',
+        details: error.message 
+      }, { status: 500 })
+    }
+
+    // A função RPC retorna JSON, então pode ser um objeto ou array
+    const planData = Array.isArray(planResult) ? planResult[0] : planResult
+
+    if (!planData) {
       return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 })
     }
 
-    return NextResponse.json(plan, { status: 201 })
+    // Buscar plano criado da view para garantir formato correto
+    const { data: createdPlan, error: fetchError } = await supabase
+      .schema('public')
+      .from('subscription_plans_view')
+      .select('*')
+      .eq('id', planData.id)
+      .single()
+
+    if (fetchError || !createdPlan) {
+      console.error('Error fetching created plan:', fetchError)
+      return NextResponse.json(planData, { status: 201 })
+    }
+
+    return NextResponse.json(createdPlan, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/admin/plans:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
