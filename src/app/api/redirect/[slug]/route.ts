@@ -11,6 +11,8 @@ export async function GET(
 ) {
   try {
     const { slug } = params
+    console.log('Redirect request for slug:', slug)
+    
     const supabase = createPublicSchemaClient()
 
     // Buscar grupo pelo slug usando view
@@ -20,12 +22,22 @@ export async function GET(
       .eq('slug', slug)
       .single()
 
-    if (groupError || !group) {
-      return NextResponse.redirect(new URL('/not-found', request.url))
+    if (groupError) {
+      console.error('Error fetching group:', groupError)
+      const notFoundUrl = new URL('/not-found', request.url)
+      return NextResponse.redirect(notFoundUrl.toString())
+    }
+
+    if (!group) {
+      console.log('Group not found for slug:', slug)
+      const notFoundUrl = new URL('/not-found', request.url)
+      return NextResponse.redirect(notFoundUrl.toString())
     }
 
     if (!group.is_active) {
-      return NextResponse.redirect(new URL('/group-inactive', request.url))
+      console.log('Group is inactive:', group.id)
+      const inactiveUrl = new URL('/group-inactive', request.url)
+      return NextResponse.redirect(inactiveUrl.toString())
     }
 
     // Buscar próximo número ativo (round-robin) usando view
@@ -37,17 +49,30 @@ export async function GET(
       .order('last_used_at', { ascending: true, nullsFirst: true })
       .limit(1)
 
-    if (numbersError || !numbers || numbers.length === 0) {
-      return NextResponse.redirect(new URL('/no-numbers', request.url))
+    if (numbersError) {
+      console.error('Error fetching numbers:', numbersError)
+      const noNumbersUrl = new URL('/no-numbers', request.url)
+      return NextResponse.redirect(noNumbersUrl.toString())
+    }
+
+    if (!numbers || numbers.length === 0) {
+      console.log('No active numbers found for group:', group.id)
+      const noNumbersUrl = new URL('/no-numbers', request.url)
+      return NextResponse.redirect(noNumbersUrl.toString())
     }
 
     const selectedNumber = numbers[0]
 
-    // Atualizar last_used_at usando RPC
-    await supabase
-      .rpc('update_number_last_used', {
-        p_id: selectedNumber.id,
-      })
+    // Atualizar last_used_at usando RPC (não bloquear se falhar)
+    try {
+      await supabase
+        .rpc('update_number_last_used', {
+          p_id: selectedNumber.id,
+        })
+    } catch (updateError) {
+      console.error('Error updating last_used_at:', updateError)
+      // Continuar mesmo se falhar
+    }
 
     // Obter informações do request para analytics
     const userAgent = request.headers.get('user-agent') || ''
@@ -57,16 +82,21 @@ export async function GET(
                'unknown'
     const referrer = request.headers.get('referer') || null
 
-    // Registrar clique usando RPC
-    await supabase.rpc('insert_click', {
-      p_company_id: group.company_id,
-      p_group_id: group.id,
-      p_number_id: selectedNumber.id,
-      p_ip_address: ip,
-      p_user_agent: userAgent,
-      p_device_type: deviceType,
-      p_referrer: referrer,
-    })
+    // Registrar clique usando RPC (não bloquear se falhar)
+    try {
+      await supabase.rpc('insert_click', {
+        p_company_id: group.company_id,
+        p_group_id: group.id,
+        p_number_id: selectedNumber.id,
+        p_ip_address: ip,
+        p_user_agent: userAgent,
+        p_device_type: deviceType,
+        p_referrer: referrer,
+      })
+    } catch (clickError) {
+      console.error('Error inserting click:', clickError)
+      // Continuar mesmo se falhar
+    }
 
     // Montar mensagem final
     const finalMessage = [group.default_message, selectedNumber.custom_message]
@@ -75,11 +105,17 @@ export async function GET(
 
     // Gerar link do WhatsApp e redirecionar
     const whatsappUrl = generateWhatsAppLink(selectedNumber.phone, finalMessage)
+    console.log('Redirecting to WhatsApp:', whatsappUrl)
 
     return NextResponse.redirect(whatsappUrl)
   } catch (error) {
     console.error('Error in redirect:', error)
-    return NextResponse.redirect(new URL('/error', request.url))
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+    const errorUrl = new URL('/error', request.url)
+    return NextResponse.redirect(errorUrl.toString())
   }
 }
 
