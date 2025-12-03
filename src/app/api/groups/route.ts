@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar grupo usando RPC
-    const rpcParams = {
+    const rpcParams: Record<string, any> = {
       p_company_id: user.company_id,
       p_name: name,
       p_slug: slug,
