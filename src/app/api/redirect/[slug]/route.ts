@@ -136,31 +136,36 @@ export async function GET(
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const referrer = request.headers.get('referer') || null
 
-    // Executar RPCs em paralelo sem bloquear o redirect
-    Promise.allSettled([
-      supabase.rpc('update_number_last_used', { p_id: selectedNumber.id }),
-      supabase.rpc('insert_click', {
-        p_company_id: group.company_id,
-        p_group_id: group.id,
-        p_number_id: selectedNumber.id,
-        p_ip_address: ip,
-        p_user_agent: userAgent,
-        p_device_type: deviceType,
-        p_referrer: referrer,
-      })
-    ]).then((results) => {
+    // Executar RPCs em paralelo E AGUARDAR antes de redirecionar
+    // Em serverless, se não aguardarmos, a função termina antes de executar
+    try {
+      const results = await Promise.allSettled([
+        supabase.rpc('update_number_last_used', { p_id: selectedNumber.id }),
+        supabase.rpc('insert_click', {
+          p_company_id: group.company_id,
+          p_group_id: group.id,
+          p_number_id: selectedNumber.id,
+          p_ip_address: ip,
+          p_user_agent: userAgent,
+          p_device_type: deviceType,
+          p_referrer: referrer,
+        })
+      ])
+      
       results.forEach((result, index) => {
+        const rpcName = index === 0 ? 'update_number_last_used' : 'insert_click'
         if (result.status === 'rejected') {
-          console.error(`[REDIRECT API] RPC ${index === 0 ? 'update_number_last_used' : 'insert_click'} failed:`, result.reason)
+          console.error(`[REDIRECT API] RPC ${rpcName} failed:`, result.reason)
         } else if (result.value.error) {
-          console.error(`[REDIRECT API] RPC ${index === 0 ? 'update_number_last_used' : 'insert_click'} error:`, result.value.error)
+          console.error(`[REDIRECT API] RPC ${rpcName} error:`, result.value.error)
         } else {
-          console.log(`[REDIRECT API] RPC ${index === 0 ? 'update_number_last_used' : 'insert_click'} success`)
+          console.log(`[REDIRECT API] RPC ${rpcName} success`)
         }
       })
-    }).catch((error) => {
+    } catch (error) {
       console.error('[REDIRECT API] Error in Promise.allSettled:', error)
-    })
+      // Não bloquear o redirect mesmo se houver erro ao registrar clique
+    }
 
     // Montar mensagem final
     const finalMessage = [group.default_message, selectedNumber.custom_message]
