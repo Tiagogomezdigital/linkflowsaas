@@ -4,6 +4,34 @@ import { getDeviceType, generateWhatsAppLink, formatPhone } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const revalidate = 0
+
+// Função para extrair browser do user-agent
+function getBrowser(userAgent: string): string {
+  if (!userAgent) return 'unknown'
+  
+  if (userAgent.includes('Firefox')) return 'Firefox'
+  if (userAgent.includes('Edg/')) return 'Edge'
+  if (userAgent.includes('Chrome')) return 'Chrome'
+  if (userAgent.includes('Safari')) return 'Safari'
+  if (userAgent.includes('Opera') || userAgent.includes('OPR')) return 'Opera'
+  if (userAgent.includes('MSIE') || userAgent.includes('Trident')) return 'Internet Explorer'
+  
+  return 'other'
+}
+
+// Função para extrair OS do user-agent
+function getOS(userAgent: string): string {
+  if (!userAgent) return 'unknown'
+  
+  if (userAgent.includes('Windows')) return 'Windows'
+  if (userAgent.includes('Mac OS') || userAgent.includes('Macintosh')) return 'macOS'
+  if (userAgent.includes('Linux') && !userAgent.includes('Android')) return 'Linux'
+  if (userAgent.includes('Android')) return 'Android'
+  if (userAgent.includes('iPhone') || userAgent.includes('iPad')) return 'iOS'
+  
+  return 'other'
+}
 
 // Esta rota retorna informações do grupo/número em JSON
 // para ser usada pela página de transição animada
@@ -13,7 +41,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const requestId = Math.random().toString(36).substring(7)
   const { slug } = params
+  
+  console.log(`[REDIRECT INFO ${requestId}] Nova requisição para slug: ${slug}`)
   
   if (!slug) {
     return NextResponse.json({ 
@@ -35,9 +66,14 @@ export async function GET(
   }
   
   try {
-    // Usar Service Role Key para garantir que as operações de escrita funcionem
+    // Criar cliente Supabase fresco a cada requisição (sem cache)
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      db: { schema: 'public' }
+      db: { schema: 'public' },
+      global: {
+        headers: {
+          'x-request-id': requestId,
+        },
+      },
     })
 
     // Buscar grupo pelo slug
@@ -85,37 +121,61 @@ export async function GET(
     // Registrar clique e atualizar last_used_at
     const userAgent = request.headers.get('user-agent') || ''
     const deviceType = getDeviceType(userAgent)
+    const browser = getBrowser(userAgent)
+    const os = getOS(userAgent)
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const referrer = request.headers.get('referer') || null
+    
+    // Capturar parâmetros UTM da URL original
+    const url = new URL(request.url)
+    const utmSource = url.searchParams.get('utm_source') || null
+    const utmMedium = url.searchParams.get('utm_medium') || null
+    const utmCampaign = url.searchParams.get('utm_campaign') || null
 
-    // Executar RPCs - registrar clique primeiro para garantir que seja contado
-    console.log('[REDIRECT INFO] Registrando clique para:', {
+    // Usar INSERT direto para garantir que não há cache
+    console.log(`[REDIRECT INFO ${requestId}] Inserindo clique:`, {
       company_id: group.company_id,
       group_id: group.id,
       number_id: selectedNumber.id,
       device_type: deviceType,
+      browser,
+      os,
     })
     
-    const clickResult = await supabase.rpc('insert_click', {
-      p_company_id: group.company_id,
-      p_group_id: group.id,
-      p_number_id: selectedNumber.id,
-      p_ip_address: ip,
-      p_user_agent: userAgent,
-      p_device_type: deviceType,
-      p_referrer: referrer,
-    })
+    // INSERT direto na tabela clicks (usando view que aponta para redirect.clicks)
+    const { data: clickData, error: clickError } = await supabase
+      .from('clicks_view')
+      .insert({
+        company_id: group.company_id,
+        group_id: group.id,
+        number_id: selectedNumber.id,
+        ip_address: ip,
+        user_agent: userAgent,
+        device_type: deviceType,
+        referrer: referrer,
+        browser: browser,
+        os: os,
+        utm_source: utmSource,
+        utm_medium: utmMedium,
+        utm_campaign: utmCampaign,
+      })
+      .select('id, created_at')
+      .single()
     
-    if (clickResult.error) {
-      console.error('[REDIRECT INFO] Erro ao registrar clique:', clickResult.error)
+    if (clickError) {
+      console.error(`[REDIRECT INFO ${requestId}] Erro ao inserir clique:`, clickError)
     } else {
-      console.log('[REDIRECT INFO] Clique registrado com sucesso:', clickResult.data)
+      console.log(`[REDIRECT INFO ${requestId}] Clique inserido com sucesso:`, clickData)
     }
     
     // Atualizar last_used_at do número
-    const updateResult = await supabase.rpc('update_number_last_used', { p_id: selectedNumber.id })
-    if (updateResult.error) {
-      console.error('[REDIRECT INFO] Erro ao atualizar last_used:', updateResult.error)
+    const { error: updateError } = await supabase
+      .from('whatsapp_numbers_view')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', selectedNumber.id)
+    
+    if (updateError) {
+      console.error(`[REDIRECT INFO ${requestId}] Erro ao atualizar last_used:`, updateError)
     }
 
     // Montar mensagem final
@@ -139,7 +199,9 @@ export async function GET(
         name: selectedNumber.name || 'Atendente',
       },
       whatsappUrl,
-      _clickId: clickResult.data?.id || null,
+      _clickId: clickData?.id || null,
+      _clickCreatedAt: clickData?.created_at || null,
+      _requestId: requestId,
       _timestamp: new Date().toISOString(),
     })
     
