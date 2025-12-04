@@ -87,23 +87,34 @@ export async function GET(
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const referrer = request.headers.get('referer') || null
 
-    // Executar RPCs em paralelo
-    try {
-      await Promise.allSettled([
-        supabase.rpc('update_number_last_used', { p_id: selectedNumber.id }),
-        supabase.rpc('insert_click', {
-          p_company_id: group.company_id,
-          p_group_id: group.id,
-          p_number_id: selectedNumber.id,
-          p_ip_address: ip,
-          p_user_agent: userAgent,
-          p_device_type: deviceType,
-          p_referrer: referrer,
-        })
-      ])
-    } catch (error) {
-      console.error('[REDIRECT INFO] Error recording click:', error)
-      // Continuar mesmo se houver erro ao registrar clique
+    // Executar RPCs - registrar clique primeiro para garantir que seja contado
+    console.log('[REDIRECT INFO] Registrando clique para:', {
+      company_id: group.company_id,
+      group_id: group.id,
+      number_id: selectedNumber.id,
+      device_type: deviceType,
+    })
+    
+    const clickResult = await supabase.rpc('insert_click', {
+      p_company_id: group.company_id,
+      p_group_id: group.id,
+      p_number_id: selectedNumber.id,
+      p_ip_address: ip,
+      p_user_agent: userAgent,
+      p_device_type: deviceType,
+      p_referrer: referrer,
+    })
+    
+    if (clickResult.error) {
+      console.error('[REDIRECT INFO] Erro ao registrar clique:', clickResult.error)
+    } else {
+      console.log('[REDIRECT INFO] Clique registrado com sucesso:', clickResult.data)
+    }
+    
+    // Atualizar last_used_at do número
+    const updateResult = await supabase.rpc('update_number_last_used', { p_id: selectedNumber.id })
+    if (updateResult.error) {
+      console.error('[REDIRECT INFO] Erro ao atualizar last_used:', updateResult.error)
     }
 
     // Montar mensagem final
