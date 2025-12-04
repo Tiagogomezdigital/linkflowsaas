@@ -36,8 +36,14 @@ export default function PublicRedirectPage({ params }: { params: { slug: string 
 
   const fetchRedirectInfo = useCallback(async () => {
     try {
-      const response = await fetch(`/api/redirect/${slug}/info`, {
+      // Adiciona timestamp para evitar cache
+      const timestamp = Date.now()
+      const response = await fetch(`/api/redirect/${slug}/info?ts=${timestamp}`, {
         cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
       })
       const data: RedirectInfo = await response.json()
       
