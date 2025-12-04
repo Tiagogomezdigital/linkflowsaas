@@ -24,9 +24,9 @@ export async function GET(
   }
   
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !supabaseServiceKey) {
     return NextResponse.json({ 
       success: false, 
       error: 'config-error',
@@ -35,7 +35,8 @@ export async function GET(
   }
   
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    // Usar Service Role Key para garantir que as operações de escrita funcionem
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       db: { schema: 'public' }
     })
 
@@ -125,7 +126,7 @@ export async function GET(
     // Gerar link do WhatsApp
     const whatsappUrl = generateWhatsAppLink(selectedNumber.phone, finalMessage)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       group: {
         id: group.id,
@@ -138,7 +139,16 @@ export async function GET(
         name: selectedNumber.name || 'Atendente',
       },
       whatsappUrl,
+      _clickId: clickResult.data?.id || null,
+      _timestamp: new Date().toISOString(),
     })
+    
+    // Headers anti-cache
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+    
+    return response
   } catch (error) {
     console.error('[REDIRECT INFO] Unexpected error:', error)
     return NextResponse.json({ 
