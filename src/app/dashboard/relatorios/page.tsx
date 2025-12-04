@@ -12,7 +12,13 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  MousePointerClick
+  MousePointerClick,
+  Monitor,
+  Smartphone,
+  Globe,
+  Clock,
+  Phone,
+  TrendingDown
 } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
@@ -48,6 +54,44 @@ interface DeviceDistribution {
   percentage: number
 }
 
+interface BrowserDistribution {
+  browser: string
+  count: number
+  percentage: number
+}
+
+interface OSDistribution {
+  os: string
+  count: number
+  percentage: number
+}
+
+interface HourlyClick {
+  hour: number
+  clicks: number
+}
+
+interface NumberRanking {
+  number_id: string
+  phone: string
+  name: string
+  clicks: number
+}
+
+interface UTMDistribution {
+  source?: string
+  medium?: string
+  campaign?: string
+  count: number
+  percentage: number
+}
+
+interface ReferrerDistribution {
+  referrer: string
+  count: number
+  percentage: number
+}
+
 export default function RelatoriosPage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [isFiltersOpen, setIsFiltersOpen] = useState(true)
@@ -61,7 +105,17 @@ export default function RelatoriosPage() {
   const [dailyClicks, setDailyClicks] = useState<DailyClick[]>([])
   const [groupRanking, setGroupRanking] = useState<GroupRanking[]>([])
   const [deviceDistribution, setDeviceDistribution] = useState<DeviceDistribution[]>([])
+  const [browserDistribution, setBrowserDistribution] = useState<BrowserDistribution[]>([])
+  const [osDistribution, setOSDistribution] = useState<OSDistribution[]>([])
+  const [hourlyClicks, setHourlyClicks] = useState<HourlyClick[]>([])
+  const [numberRanking, setNumberRanking] = useState<NumberRanking[]>([])
+  const [utmSourceDistribution, setUtmSourceDistribution] = useState<UTMDistribution[]>([])
+  const [utmMediumDistribution, setUtmMediumDistribution] = useState<UTMDistribution[]>([])
+  const [utmCampaignDistribution, setUtmCampaignDistribution] = useState<UTMDistribution[]>([])
+  const [referrerDistribution, setReferrerDistribution] = useState<ReferrerDistribution[]>([])
   const [totalClicks, setTotalClicks] = useState(0)
+  const [previousPeriodClicks, setPreviousPeriodClicks] = useState(0)
+  const [growthPercentage, setGrowthPercentage] = useState(0)
 
   const todayDate = new Date().toLocaleDateString('pt-BR')
 
@@ -87,7 +141,17 @@ export default function RelatoriosPage() {
       setDailyClicks(data.daily_clicks || [])
       setGroupRanking(data.group_ranking || [])
       setDeviceDistribution(data.device_distribution || [])
+      setBrowserDistribution(data.browser_distribution || [])
+      setOSDistribution(data.os_distribution || [])
+      setHourlyClicks(data.hourly_clicks || [])
+      setNumberRanking(data.number_ranking || [])
+      setUtmSourceDistribution(data.utm_source_distribution || [])
+      setUtmMediumDistribution(data.utm_medium_distribution || [])
+      setUtmCampaignDistribution(data.utm_campaign_distribution || [])
+      setReferrerDistribution(data.referrer_distribution || [])
       setTotalClicks(data.total_clicks || 0)
+      setPreviousPeriodClicks(data.previous_period_clicks || 0)
+      setGrowthPercentage(data.growth_percentage || 0)
       setReportGenerated(true)
     } catch (error) {
       console.error('Error generating report:', error)
@@ -179,7 +243,17 @@ export default function RelatoriosPage() {
       setDailyClicks(data.daily_clicks || [])
       setGroupRanking(data.group_ranking || [])
       setDeviceDistribution(data.device_distribution || [])
+      setBrowserDistribution(data.browser_distribution || [])
+      setOSDistribution(data.os_distribution || [])
+      setHourlyClicks(data.hourly_clicks || [])
+      setNumberRanking(data.number_ranking || [])
+      setUtmSourceDistribution(data.utm_source_distribution || [])
+      setUtmMediumDistribution(data.utm_medium_distribution || [])
+      setUtmCampaignDistribution(data.utm_campaign_distribution || [])
+      setReferrerDistribution(data.referrer_distribution || [])
       setTotalClicks(data.total_clicks || 0)
+      setPreviousPeriodClicks(data.previous_period_clicks || 0)
+      setGrowthPercentage(data.growth_percentage || 0)
       setReportGenerated(true)
     } catch (error) {
       console.error('Error generating report:', error)
@@ -384,7 +458,7 @@ export default function RelatoriosPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Resumo */}
           <Card className="lg:col-span-2">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-lime-500/10">
                   <MousePointerClick className="w-6 h-6 text-lime-400" />
@@ -421,6 +495,24 @@ export default function RelatoriosPage() {
                 <div>
                   <p className="text-sm text-text-muted">Pico de Cliques</p>
                   <p className="text-2xl font-bold text-white">{maxClicks}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${growthPercentage >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                  {growthPercentage >= 0 ? (
+                    <TrendingUp className={`w-6 h-6 ${growthPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`} />
+                  ) : (
+                    <TrendingDown className="w-6 h-6 text-red-400" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm text-text-muted">Crescimento</p>
+                  <p className={`text-2xl font-bold ${growthPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {growthPercentage > 0 ? '+' : ''}{growthPercentage}%
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {previousPeriodClicks} período anterior
+                  </p>
                 </div>
               </div>
             </div>
@@ -533,6 +625,233 @@ export default function RelatoriosPage() {
               </>
             )}
           </Card>
+
+          {/* Gráfico de Horários de Pico */}
+          <Card>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              Horários de Pico
+            </h3>
+            {hourlyClicks.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p>Nenhum dado disponível para o período selecionado</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {hourlyClicks.map((hour) => {
+                  const maxHourlyClicks = Math.max(...hourlyClicks.map(h => h.clicks))
+                  return (
+                    <div key={hour.hour} className="flex items-center gap-3">
+                      <span className="text-xs text-text-muted w-12">
+                        {hour.hour.toString().padStart(2, '0')}h
+                      </span>
+                      <div className="flex-1 h-4 bg-background rounded-lg overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-lg transition-all duration-500"
+                          style={{ width: maxHourlyClicks > 0 ? `${(hour.clicks / maxHourlyClicks) * 100}%` : '0%' }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-white w-8 text-right">
+                        {hour.clicks}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Ranking de Números de WhatsApp */}
+          <Card>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Phone className="w-5 h-5" />
+              Números Mais Usados
+            </h3>
+            {numberRanking.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p>Nenhum dado disponível para o período selecionado</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {numberRanking.map((number, index) => (
+                  <div key={number.number_id} className="flex items-center gap-3">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      index === 0 ? 'bg-yellow-500/20 text-yellow-400' :
+                      index === 1 ? 'bg-gray-400/20 text-gray-400' :
+                      index === 2 ? 'bg-orange-500/20 text-orange-400' :
+                      'bg-surface text-text-muted'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm text-white">{number.name}</p>
+                      <p className="text-xs text-text-muted">{number.phone}</p>
+                    </div>
+                    <span className="text-sm font-medium text-lime-400">{number.clicks} cliques</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Distribuição por Navegador */}
+          <Card>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              Navegadores
+            </h3>
+            {browserDistribution.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p>Nenhum dado disponível</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {browserDistribution.map((browser) => (
+                  <div key={browser.browser} className="flex items-center gap-3">
+                    <span className="text-sm text-white flex-1 capitalize">{browser.browser}</span>
+                    <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-lg transition-all duration-500"
+                        style={{ width: `${browser.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-white w-16 text-right">
+                      {browser.percentage}% ({browser.count})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Distribuição por Sistema Operacional */}
+          <Card>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Monitor className="w-5 h-5" />
+              Sistemas Operacionais
+            </h3>
+            {osDistribution.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p>Nenhum dado disponível</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {osDistribution.map((os) => (
+                  <div key={os.os} className="flex items-center gap-3">
+                    <span className="text-sm text-white flex-1 capitalize">{os.os}</span>
+                    <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-pink-500 to-pink-400 rounded-lg transition-all duration-500"
+                        style={{ width: `${os.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-white w-16 text-right">
+                      {os.percentage}% ({os.count})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Análise de Campanhas UTM - Source */}
+          {utmSourceDistribution.length > 0 && (
+            <Card>
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                Origem das Campanhas (UTM Source)
+              </h3>
+              <div className="space-y-3">
+                {utmSourceDistribution.map((utm) => (
+                  <div key={utm.source} className="flex items-center gap-3">
+                    <span className="text-sm text-white flex-1">{utm.source}</span>
+                    <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-lg transition-all duration-500"
+                        style={{ width: `${utm.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-white w-16 text-right">
+                      {utm.percentage}% ({utm.count})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Análise de Campanhas UTM - Medium */}
+          {utmMediumDistribution.length > 0 && (
+            <Card>
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                Meio das Campanhas (UTM Medium)
+              </h3>
+              <div className="space-y-3">
+                {utmMediumDistribution.map((utm) => (
+                  <div key={utm.medium} className="flex items-center gap-3">
+                    <span className="text-sm text-white flex-1">{utm.medium}</span>
+                    <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-teal-500 to-teal-400 rounded-lg transition-all duration-500"
+                        style={{ width: `${utm.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-white w-16 text-right">
+                      {utm.percentage}% ({utm.count})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Análise de Campanhas UTM - Campaign */}
+          {utmCampaignDistribution.length > 0 && (
+            <Card>
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                Campanhas (UTM Campaign)
+              </h3>
+              <div className="space-y-3">
+                {utmCampaignDistribution.map((utm) => (
+                  <div key={utm.campaign} className="flex items-center gap-3">
+                    <span className="text-sm text-white flex-1">{utm.campaign}</span>
+                    <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-lg transition-all duration-500"
+                        style={{ width: `${utm.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-white w-16 text-right">
+                      {utm.percentage}% ({utm.count})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Análise de Referrers */}
+          {referrerDistribution.length > 0 && (
+            <Card className="lg:col-span-2">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                Origem do Tráfego
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {referrerDistribution.map((ref) => (
+                  <div key={ref.referrer} className="text-center p-4 bg-background/50 rounded-xl">
+                    <div className="text-2xl font-bold text-white mb-1">{ref.percentage}%</div>
+                    <div className="text-sm text-text-muted capitalize truncate" title={ref.referrer}>
+                      {ref.referrer === 'direct' ? 'Acesso Direto' : ref.referrer}
+                    </div>
+                    <div className="text-xs text-text-muted mt-1">{ref.count} cliques</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </>
