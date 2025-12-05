@@ -25,7 +25,7 @@ export default function ConfiguracoesPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [isTestingSMTP, setIsTestingSMTP] = useState(false)
-  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string; warnings?: string[] } | null>(null)
 
   // Configurações gerais
   const [appName, setAppName] = useState('LinkFlow')
@@ -274,12 +274,14 @@ export default function ConfiguracoesPage() {
                   if (data.success) {
                     setSmtpTestResult({
                       success: true,
-                      message: data.message || 'Conexão SMTP testada com sucesso!'
+                      message: data.message || 'Conexão SMTP testada com sucesso!',
+                      warnings: data.warnings
                     })
                   } else {
                     setSmtpTestResult({
                       success: false,
-                      message: data.error || 'Falha ao testar conexão SMTP'
+                      message: data.error || 'Falha ao testar conexão SMTP',
+                      warnings: data.warnings
                     })
                   }
                 } catch (error: any) {
@@ -321,9 +323,21 @@ export default function ConfiguracoesPage() {
                   }`}>
                     {smtpTestResult.success ? '✅ Sucesso' : '❌ Erro'}
                   </p>
-                  <p className="text-xs text-text-muted mt-1">
+                  <p className={`text-xs mt-1 whitespace-pre-line ${
+                    smtpTestResult.success ? 'text-text-muted' : 'text-red-300'
+                  }`}>
                     {smtpTestResult.message}
                   </p>
+                  {smtpTestResult.warnings && smtpTestResult.warnings.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-surface-border">
+                      <p className="text-xs font-medium text-yellow-400 mb-1">⚠️ Avisos:</p>
+                      <ul className="text-xs text-yellow-300 list-disc list-inside space-y-1">
+                        {smtpTestResult.warnings.map((warning, idx) => (
+                          <li key={idx}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

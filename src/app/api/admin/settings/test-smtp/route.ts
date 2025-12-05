@@ -48,12 +48,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: result.message,
+        warnings: result.warnings,
       })
     } else {
       return NextResponse.json(
         { 
           success: false,
-          error: result.message 
+          error: result.message,
+          warnings: result.warnings,
         },
         { status: 400 }
       )

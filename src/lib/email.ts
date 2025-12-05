@@ -134,6 +134,35 @@ export async function sendEmail(options: {
 }
 
 /**
+ * Valida e corrige erros comuns no hostname SMTP
+ */
+function validateAndFixHostname(host: string): { host: string; warnings: string[] } {
+  const warnings: string[] = []
+  let fixedHost = host.trim().toLowerCase()
+  
+  // Correções comuns de digitação
+  const commonMistakes: Record<string, string> = {
+    'smpt.gmail.com': 'smtp.gmail.com',
+    'smtp.gmai.com': 'smtp.gmail.com',
+    'smtp.gmail.co': 'smtp.gmail.com',
+    'smpt.outlook.com': 'smtp.outlook.com',
+    'smpt.office365.com': 'smtp.office365.com',
+  }
+  
+  if (commonMistakes[fixedHost]) {
+    warnings.push(`Hostname corrigido de "${host}" para "${commonMistakes[fixedHost]}"`)
+    fixedHost = commonMistakes[fixedHost]
+  }
+  
+  // Validar formato básico
+  if (!fixedHost.includes('.')) {
+    warnings.push('Hostname parece inválido (não contém ponto)')
+  }
+  
+  return { host: fixedHost, warnings }
+}
+
+/**
  * Testa a conexão SMTP com as credenciais fornecidas
  */
 export async function testSMTPConnection(config: {
@@ -144,14 +173,18 @@ export async function testSMTPConnection(config: {
     user: string
     pass: string
   }
-}): Promise<{ success: boolean; message: string }> {
+}): Promise<{ success: boolean; message: string; warnings?: string[] }> {
   try {
+    // Validar e corrigir hostname
+    const { host: validatedHost, warnings } = validateAndFixHostname(config.host)
+    
     const port = typeof config.port === 'string' ? parseInt(config.port) : config.port
     
     if (isNaN(port) || port <= 0 || port > 65535) {
       return {
         success: false,
-        message: 'Porta SMTP inválida',
+        message: 'Porta SMTP inválida. Deve ser um número entre 1 e 65535',
+        warnings,
       }
     }
 
@@ -160,24 +193,38 @@ export async function testSMTPConnection(config: {
       : port === 465 // SSL na porta 465
 
     const testTransporter = nodemailer.createTransport({
-      host: config.host,
+      host: validatedHost,
       port: port,
       secure: secure,
       auth: {
-        user: config.auth.user,
+        user: config.auth.user.trim(),
         pass: config.auth.pass,
       },
+      // Timeout para evitar travamentos
+      connectionTimeout: 10000, // 10 segundos
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     })
 
     // Verificar conexão
     await testTransporter.verify()
     
+    let successMessage = 'Conexão SMTP bem-sucedida! As credenciais estão corretas.'
+    if (warnings.length > 0) {
+      successMessage += `\n\n⚠️ Avisos: ${warnings.join('; ')}`
+    }
+    
     return {
       success: true,
-      message: 'Conexão SMTP bem-sucedida! As credenciais estão corretas.',
+      message: successMessage,
+      warnings: warnings.length > 0 ? warnings : undefined,
     }
   } catch (error: any) {
     console.error('SMTP test error:', error)
+    
+    // Validar hostname novamente para detectar erros de digitação
+    const { host: validatedHost, warnings } = validateAndFixHostname(config.host)
+    const allWarnings = [...warnings]
     
     // Mensagens de erro mais amigáveis
     let message = 'Erro ao conectar ao servidor SMTP'
@@ -185,14 +232,29 @@ export async function testSMTPConnection(config: {
     if (error.code === 'EAUTH') {
       message = 'Credenciais inválidas. Verifique usuário e senha.'
     } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
-      message = `Não foi possível conectar ao servidor ${config.host}:${config.port}. Verifique o host e porta.`
+      message = `Não foi possível conectar ao servidor ${validatedHost}:${config.port}. Verifique o host e porta.`
+    } else if (error.code === 'EDNS' || error.code === 'ENOTFOUND' || error.errno === -16) {
+      // Erro de DNS (hostname não encontrado)
+      if (validatedHost !== config.host.trim().toLowerCase()) {
+        message = `Hostname "${config.host}" não encontrado. Você quis dizer "${validatedHost}"? Verifique a digitação.`
+        allWarnings.push(`Hostname original "${config.host}" pode estar incorreto`)
+      } else {
+        message = `Hostname "${validatedHost}" não encontrado. Verifique se está correto. Exemplos: smtp.gmail.com, smtp.outlook.com`
+      }
+    } else if (error.code === 'ECONNRESET') {
+      message = `Conexão resetada pelo servidor ${validatedHost}. Verifique se a porta ${config.port} está correta.`
     } else if (error.message) {
       message = error.message
+      // Adicionar sugestão se for erro de DNS
+      if (error.message.includes('getaddrinfo') || error.message.includes('ENOTFOUND')) {
+        message += `\n\n💡 Dica: Verifique se o hostname está correto. Exemplos:\n- Gmail: smtp.gmail.com\n- Outlook: smtp-mail.outlook.com\n- Office365: smtp.office365.com`
+      }
     }
     
     return {
       success: false,
       message,
+      warnings: allWarnings.length > 0 ? allWarnings : undefined,
     }
   }
 }
