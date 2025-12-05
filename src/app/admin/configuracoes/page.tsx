@@ -26,6 +26,11 @@ export default function ConfiguracoesPage() {
   const [saved, setSaved] = useState(false)
   const [isTestingSMTP, setIsTestingSMTP] = useState(false)
   const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string; warnings?: string[] } | null>(null)
+  const [systemStatus, setSystemStatus] = useState<{
+    services: Array<{ name: string; connected: boolean; message: string; latency?: number }>
+    overall: { status: string; connected: boolean; total: number; connectedCount: number }
+  } | null>(null)
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false)
 
   // Configurações gerais
   const [appName, setAppName] = useState('LinkFlow')
@@ -81,7 +86,23 @@ export default function ConfiguracoesPage() {
     }
 
     loadSettings()
+    loadSystemStatus()
   }, [])
+
+  const loadSystemStatus = async () => {
+    setIsLoadingStatus(true)
+    try {
+      const response = await fetch('/api/admin/system-status')
+      if (response.ok) {
+        const status = await response.json()
+        setSystemStatus(status)
+      }
+    } catch (error) {
+      console.error('Error loading system status:', error)
+    } finally {
+      setIsLoadingStatus(false)
+    }
+  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -390,29 +411,87 @@ export default function ConfiguracoesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 bg-background/50 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-text-secondary">Supabase</span>
-                <div className="w-2 h-2 rounded-full bg-lime-400 animate-pulse" />
-              </div>
-              <Badge variant="success">Conectado</Badge>
-            </div>
-            <div className="p-4 bg-background/50 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-text-secondary">Redis Cache</span>
-                <div className="w-2 h-2 rounded-full bg-lime-400 animate-pulse" />
-              </div>
-              <Badge variant="success">Conectado</Badge>
-            </div>
-            <div className="p-4 bg-background/50 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-text-secondary">Email (SMTP)</span>
-                <div className="w-2 h-2 rounded-full bg-lime-400 animate-pulse" />
-              </div>
-              <Badge variant="success">Conectado</Badge>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-text-muted">
+              {systemStatus 
+                ? `Status geral: ${systemStatus.overall.connectedCount}/${systemStatus.overall.total} serviços conectados`
+                : 'Clique em "Verificar Agora" para verificar o status'}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadSystemStatus}
+              disabled={isLoadingStatus}
+            >
+              {isLoadingStatus ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Verificar Agora
+                </>
+              )}
+            </Button>
           </div>
+
+          {isLoadingStatus && !systemStatus ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin text-lime-400" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {systemStatus?.services.map((service) => (
+                <div key={service.name} className="p-4 bg-background/50 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-text-secondary">{service.name}</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      service.connected 
+                        ? 'bg-lime-400 animate-pulse' 
+                        : 'bg-red-400'
+                    }`} />
+                  </div>
+                  <Badge variant={service.connected ? "success" : "danger"}>
+                    {service.connected ? 'Conectado' : 'Desconectado'}
+                  </Badge>
+                  {service.latency && (
+                    <p className="text-xs text-text-muted mt-2">
+                      {service.latency}ms
+                    </p>
+                  )}
+                  <p className="text-xs text-text-muted mt-1 truncate" title={service.message}>
+                    {service.message}
+                  </p>
+                </div>
+              )) || (
+                <>
+                  <div className="p-4 bg-background/50 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-text-secondary">Supabase</span>
+                      <div className="w-2 h-2 rounded-full bg-gray-400" />
+                    </div>
+                    <Badge variant="default">Não verificado</Badge>
+                  </div>
+                  <div className="p-4 bg-background/50 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-text-secondary">Redis Cache</span>
+                      <div className="w-2 h-2 rounded-full bg-gray-400" />
+                    </div>
+                    <Badge variant="default">Não verificado</Badge>
+                  </div>
+                  <div className="p-4 bg-background/50 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-text-secondary">Email (SMTP)</span>
+                      <div className="w-2 h-2 rounded-full bg-gray-400" />
+                    </div>
+                    <Badge variant="default">Não verificado</Badge>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </Card>
 
         {/* Webhooks */}
