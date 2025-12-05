@@ -11,7 +11,8 @@ import {
   Webhook,
   Save,
   RefreshCw,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Card from '@/components/ui/Card'
@@ -23,6 +24,8 @@ export default function ConfiguracoesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isTestingSMTP, setIsTestingSMTP] = useState(false)
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   // Configurações gerais
   const [appName, setAppName] = useState('LinkFlow')
@@ -33,6 +36,7 @@ export default function ConfiguracoesPage() {
   const [smtpHost, setSmtpHost] = useState('smtp.resend.com')
   const [smtpPort, setSmtpPort] = useState('587')
   const [smtpUser, setSmtpUser] = useState('')
+  const [smtpPassword, setSmtpPassword] = useState('')
   const [smtpFrom, setSmtpFrom] = useState('noreply@linkflow.com')
 
   // Configurações de trial
@@ -59,6 +63,7 @@ export default function ConfiguracoesPage() {
             setSmtpHost(settings.email.smtpHost || 'smtp.resend.com')
             setSmtpPort(settings.email.smtpPort || '587')
             setSmtpUser(settings.email.smtpUser || '')
+            setSmtpPassword(settings.email.smtpPassword || '')
             setSmtpFrom(settings.email.smtpFrom || 'noreply@linkflow.com')
           }
           
@@ -91,6 +96,7 @@ export default function ConfiguracoesPage() {
           smtpHost,
           smtpPort,
           smtpUser,
+          smtpPassword,
           smtpFrom,
         },
         trial: {
@@ -187,7 +193,16 @@ export default function ConfiguracoesPage() {
               <h3 className="text-lg font-semibold text-white">Configurações de Email</h3>
               <p className="text-sm text-text-muted">SMTP para envio de emails transacionais</p>
             </div>
-            <Badge variant="success" className="ml-auto">Conectado</Badge>
+            {smtpTestResult ? (
+              <Badge 
+                variant={smtpTestResult.success ? "success" : "danger"} 
+                className="ml-auto"
+              >
+                {smtpTestResult.success ? "Conectado" : "Erro"}
+              </Badge>
+            ) : (
+              <Badge variant="default" className="ml-auto">Não testado</Badge>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-6">
@@ -195,31 +210,53 @@ export default function ConfiguracoesPage() {
               label="SMTP Host"
               value={smtpHost}
               onChange={(e) => setSmtpHost(e.target.value)}
+              placeholder="smtp.gmail.com"
             />
             <Input
               label="SMTP Port"
               value={smtpPort}
               onChange={(e) => setSmtpPort(e.target.value)}
+              placeholder="587 ou 465"
             />
             <Input
-              label="SMTP User"
-              type="password"
+              label="SMTP User (Email)"
+              type="email"
               value={smtpUser}
               onChange={(e) => setSmtpUser(e.target.value)}
-              placeholder="••••••••"
+              placeholder="seu-email@gmail.com"
+            />
+            <Input
+              label="SMTP Password"
+              type="password"
+              value={smtpPassword}
+              onChange={(e) => setSmtpPassword(e.target.value)}
+              placeholder="Senha de App do Gmail"
             />
             <Input
               label="Email Remetente"
+              type="email"
               value={smtpFrom}
               onChange={(e) => setSmtpFrom(e.target.value)}
+              placeholder="noreply@linkflow.com"
             />
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
             <Button 
               variant="outline" 
               size="sm"
               onClick={async () => {
+                if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
+                  setSmtpTestResult({
+                    success: false,
+                    message: 'Preencha todos os campos SMTP antes de testar'
+                  })
+                  return
+                }
+
+                setIsTestingSMTP(true)
+                setSmtpTestResult(null)
+
                 try {
                   const response = await fetch('/api/admin/settings/test-smtp', {
                     method: 'POST',
@@ -228,25 +265,68 @@ export default function ConfiguracoesPage() {
                       smtpHost,
                       smtpPort,
                       smtpUser,
-                      smtpPassword: smtpUser, // Em produção, use um campo separado para senha
+                      smtpPassword,
                     }),
                   })
 
                   const data = await response.json()
                   
-                  if (response.ok) {
-                    alert('✅ ' + (data.message || 'Conexão SMTP testada com sucesso!'))
+                  if (data.success) {
+                    setSmtpTestResult({
+                      success: true,
+                      message: data.message || 'Conexão SMTP testada com sucesso!'
+                    })
                   } else {
-                    alert('❌ Erro: ' + (data.error || 'Falha ao testar conexão SMTP'))
+                    setSmtpTestResult({
+                      success: false,
+                      message: data.error || 'Falha ao testar conexão SMTP'
+                    })
                   }
-                } catch (error) {
+                } catch (error: any) {
                   console.error('Error testing SMTP:', error)
-                  alert('❌ Erro ao testar conexão SMTP')
+                  setSmtpTestResult({
+                    success: false,
+                    message: error.message || 'Erro ao testar conexão SMTP'
+                  })
+                } finally {
+                  setIsTestingSMTP(false)
                 }
               }}
+              disabled={isTestingSMTP}
             >
-              Testar Conexão
+              {isTestingSMTP ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                  Testando...
+                </>
+              ) : (
+                'Testar Conexão'
+              )}
             </Button>
+
+            {smtpTestResult && (
+              <div className={`p-3 rounded-lg flex items-start gap-3 ${
+                smtpTestResult.success 
+                  ? 'bg-lime-500/10 border border-lime-500/20' 
+                  : 'bg-red-500/10 border border-red-500/20'
+              }`}>
+                {smtpTestResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-lime-400 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${
+                    smtpTestResult.success ? 'text-lime-400' : 'text-red-400'
+                  }`}>
+                    {smtpTestResult.success ? '✅ Sucesso' : '❌ Erro'}
+                  </p>
+                  <p className="text-xs text-text-muted mt-1">
+                    {smtpTestResult.message}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 

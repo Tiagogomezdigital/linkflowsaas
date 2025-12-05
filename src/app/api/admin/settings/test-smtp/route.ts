@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
+import { testSMTPConnection } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -16,38 +17,56 @@ export async function POST(request: NextRequest) {
     const { smtpHost, smtpPort, smtpUser, smtpPassword } = body
 
     // Validação básica
-    if (!smtpHost || !smtpPort) {
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
       return NextResponse.json(
-        { error: 'SMTP Host e Port são obrigatórios' },
+        { error: 'Todos os campos SMTP são obrigatórios (Host, Port, User, Password)' },
         { status: 400 }
       )
     }
 
-    // Simular teste de conexão SMTP
-    // Em produção, você usaria uma biblioteca como nodemailer para testar
-    // Por enquanto, apenas validamos os campos
-    
-    const isValidPort = parseInt(smtpPort) > 0 && parseInt(smtpPort) < 65536
-    
-    if (!isValidPort) {
+    // Validar porta
+    const port = parseInt(smtpPort)
+    if (isNaN(port) || port <= 0 || port > 65535) {
       return NextResponse.json(
-        { error: 'Porta SMTP inválida' },
+        { error: 'Porta SMTP inválida. Deve ser um número entre 1 e 65535' },
         { status: 400 }
       )
     }
 
-    // Simular delay de teste
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Por enquanto, retornamos sucesso se os campos estão válidos
-    // Em produção, você faria um teste real de conexão SMTP
-    return NextResponse.json({ 
-      success: true,
-      message: 'Configurações SMTP válidas. Teste de conexão real será implementado em breve.'
+    // Testar conexão SMTP real
+    const result = await testSMTPConnection({
+      host: smtpHost.trim(),
+      port: port,
+      secure: port === 465, // SSL na porta 465
+      auth: {
+        user: smtpUser.trim(),
+        pass: smtpPassword,
+      },
     })
-  } catch (error) {
+
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        message: result.message,
+      })
+    } else {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: result.message 
+        },
+        { status: 400 }
+      )
+    }
+  } catch (error: any) {
     console.error('Error in POST /api/admin/settings/test-smtp:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { 
+        success: false,
+        error: error.message || 'Erro interno do servidor ao testar conexão SMTP' 
+      },
+      { status: 500 }
+    )
   }
 }
 
