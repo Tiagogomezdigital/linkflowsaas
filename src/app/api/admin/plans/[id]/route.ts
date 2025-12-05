@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicSchemaClient } from '@/lib/supabase/server'
-import { getAuthUser } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -10,13 +10,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getAuthUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     const { data: plan, error } = await supabase
       .from('subscription_plans_view')
@@ -40,10 +40,10 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getAuthUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
     const body = await request.json()
@@ -58,7 +58,7 @@ export async function PUT(
       sort_order
     } = body
 
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     // Verificar se plano existe
     const { data: existingPlan } = await supabase
@@ -137,13 +137,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getAuthUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     // Verificar se plano existe
     const { data: existingPlan } = await supabase

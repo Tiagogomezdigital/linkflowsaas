@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicSchemaClient } from '@/lib/supabase/server'
-import { getAuthUser } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     const { data: settings, error } = await supabase
       .from('system_settings_view')
@@ -39,14 +39,14 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const user = await getAuthUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
     const body = await request.json()
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     // Salvar cada configuração usando RPC
     const updates = Object.entries(body).map(async ([key, value]) => {

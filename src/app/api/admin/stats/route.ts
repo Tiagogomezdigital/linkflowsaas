@@ -1,21 +1,19 @@
 import { NextResponse } from 'next/server'
-import { createPublicSchemaClient } from '@/lib/supabase/server'
-import { getAuthUser } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET() {
   try {
-    const user = await getAuthUser()
-    
-    // Verificar se é super admin (por enquanto, qualquer usuário autenticado)
-    // Em produção, adicionar verificação de role específico
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin - retorna 401 ou 403 se não for
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     // Total de empresas
     const { count: totalEmpresas } = await supabase

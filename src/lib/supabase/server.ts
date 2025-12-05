@@ -72,8 +72,26 @@ export function createServiceRoleClient() {
 }
 
 // Cliente específico para acessar views no schema public
-// Usa createClient diretamente para garantir que o schema seja respeitado
+// Usa ANON_KEY com políticas RLS - mais seguro que SERVICE_ROLE
 export function createPublicSchemaClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      db: {
+        schema: 'public',
+      },
+    }
+  )
+}
+
+// Cliente com SERVICE_ROLE para operações administrativas
+// ⚠️ USE COM CUIDADO - ignora RLS e tem acesso total ao banco
+// Deve ser usado APENAS em:
+// - APIs de admin protegidas por requireAdmin()
+// - Operações de sistema (cron jobs, webhooks)
+// - Casos onde RLS impede operações legítimas
+export function createAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,

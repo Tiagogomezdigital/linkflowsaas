@@ -95,3 +95,54 @@ export async function clearAuthCookie() {
   })
 }
 
+// Lista de emails de administradores
+// Em produção, isso deveria vir de uma tabela no banco ou variável de ambiente
+const ADMIN_EMAILS = ['admin@linkflow.com']
+
+/**
+ * Verifica se o usuário atual é um administrador
+ */
+export function isAdminUser(user: AuthUser | null): boolean {
+  if (!user) return false
+  return ADMIN_EMAILS.includes(user.email.toLowerCase())
+}
+
+/**
+ * Retorna o usuário autenticado apenas se for admin
+ * Retorna null se não autenticado ou não for admin
+ */
+export async function getAdminUser(): Promise<AuthUser | null> {
+  const user = await getAuthUser()
+  
+  if (!user) return null
+  if (!isAdminUser(user)) return null
+  
+  return user
+}
+
+/**
+ * Interface para resposta de erro padronizada
+ */
+export interface AuthError {
+  error: string
+  status: 401 | 403
+}
+
+/**
+ * Verifica se o usuário é admin e retorna erro apropriado se não for
+ * Use isso para proteger rotas admin
+ */
+export async function requireAdmin(): Promise<{ user: AuthUser } | { error: AuthError }> {
+  const user = await getAuthUser()
+  
+  if (!user) {
+    return { error: { error: 'Unauthorized - Not authenticated', status: 401 } }
+  }
+  
+  if (!isAdminUser(user)) {
+    return { error: { error: 'Forbidden - Admin access required', status: 403 } }
+  }
+  
+  return { user }
+}
+

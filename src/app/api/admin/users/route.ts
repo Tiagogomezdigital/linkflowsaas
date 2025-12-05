@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicSchemaClient } from '@/lib/supabase/server'
-import { getAuthUser } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin - retorna 401 ou 403 se não for
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
     const { searchParams } = new URL(request.url)
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const companyId = searchParams.get('company_id')
     const search = searchParams.get('search')
 
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     let query = supabase
       .from('users_view')
@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verificar se é admin
+    const auth = await requireAdmin()
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.error }, { status: auth.error.status })
     }
 
     const body = await request.json()
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createPublicSchemaClient()
+    const supabase = createAdminClient()
 
     // Verificar se email já existe
     const { data: existingEmail } = await supabase
